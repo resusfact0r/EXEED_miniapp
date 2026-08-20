@@ -5,7 +5,7 @@ import mkcert from 'vite-plugin-mkcert';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/tg-miniapp/',
+  base: '/',
   css: {
     preprocessorOptions: {
       scss: {
@@ -32,6 +32,9 @@ export default defineConfig({
   server: {
     // Exposes your dev server and makes it accessible for the devices in the same network.
     host: true,
+    // Needed so requests proxied through an HTTPS tunnel (cloudflared/ngrok) aren't rejected
+    // for having an unrecognized Host header. Fine for local dev; never do this in production.
+    allowedHosts: true,
   },
 });
 

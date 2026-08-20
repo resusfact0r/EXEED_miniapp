@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FulfillmentType {
+  PICKUP
+  DELIVERY
+}
+
+enum PickupAddress {
+  ADDRESS_1
+  ADDRESS_2
+}
+
+enum DeliveryCarrier {
+  CDEK
+  YANDEX
+}
+
+enum PaymentMethod {
+  QR_LINK
+  LEGAL_ENTITY
+}
+
+enum OrderStatus {
+  NEW
+  AWAITING_PAYMENT_LINK
+  AWAITING_PAYMENT
+  PAID
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id          String     @id @default(cuid())
+  telegramId  BigInt     @unique
+  username    String?
+  firstName   String?
+  lastName    String?
+  phone       String?
+  firstSeenAt DateTime   @default(now())
+  lastSeenAt  DateTime   @updatedAt
+  cartItems   CartItem[]
+  orders      Order[]
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  name        String
+  price       Decimal     @db.Decimal(10, 2)
+  stockQty    Int         @default(0)
+  description String?
+  imageUrl    String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+
+  @@index([name])
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Int
+  /// Catalog price at the moment this line was first added, so the cart can warn the user
+  /// if the price has since moved (catalog price is only indicative, see AvtoligaService).
+  priceAtAdd Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  Int         @default(autoincrement())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  status       OrderStatus @default(NEW)
+
+  fulfillmentType    FulfillmentType
+  pickupAddressCode  PickupAddress?
+  pickupAddressLabel String?
+  deliveryCarrier    DeliveryCarrier?
+  deliveryPvzId      String?
+  deliveryPvzAddress String?
+
+  paymentMethod  PaymentMethod
+  orgCardDetails String?       @db.Text
+  paymentLink    String?
+
+  policyAcknowledgedAt DateTime
+  totalAmount          Decimal  @db.Decimal(10, 2)
+
+  externalNotifiedAt DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  items              OrderItem[]
+
+  @@unique([orderNumber])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id])
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  productCode String
+  productName String
+  unitPrice   Decimal @db.Decimal(10, 2)
+  quantity    Int
+}

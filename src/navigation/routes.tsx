@@ -1,10 +1,19 @@
 import type { ComponentType, JSX } from 'react';
+import { Navigate } from 'react-router-dom';
 
-import { IndexPage } from '@/pages/IndexPage/IndexPage';
 import { InitDataPage } from '@/pages/InitDataPage.tsx';
 import { LaunchParamsPage } from '@/pages/LaunchParamsPage.tsx';
 import { ThemeParamsPage } from '@/pages/ThemeParamsPage.tsx';
 import { TONConnectPage } from '@/pages/TONConnectPage/TONConnectPage';
+import { CatalogPage } from '@/pages/CatalogPage/CatalogPage.tsx';
+import { ProductDetailPage } from '@/pages/ProductDetailPage/ProductDetailPage.tsx';
+import { CartPage } from '@/pages/CartPage/CartPage.tsx';
+import { CheckoutFulfillmentPage } from '@/pages/CheckoutFulfillmentPage/CheckoutFulfillmentPage.tsx';
+import { CheckoutPaymentPage } from '@/pages/CheckoutPaymentPage/CheckoutPaymentPage.tsx';
+import { OrderConfirmationPage } from '@/pages/OrderConfirmationPage/OrderConfirmationPage.tsx';
+import { OrdersHistoryPage } from '@/pages/OrdersHistoryPage/OrdersHistoryPage.tsx';
+import { OrderDetailPage } from '@/pages/OrderDetailPage/OrderDetailPage.tsx';
+import { ProfilePage } from '@/pages/ProfilePage/ProfilePage.tsx';
 
 interface Route {
   path: string;
@@ -13,8 +22,19 @@ interface Route {
   icon?: JSX.Element;
 }
 
+const RedirectToCatalog: ComponentType = () => <Navigate to="/catalog" replace />;
+
 export const routes: Route[] = [
-  { path: '/', Component: IndexPage },
+  { path: '/', Component: RedirectToCatalog },
+  { path: '/catalog', Component: CatalogPage, title: 'Каталог' },
+  { path: '/product/:id', Component: ProductDetailPage },
+  { path: '/cart', Component: CartPage, title: 'Корзина' },
+  { path: '/checkout/fulfillment', Component: CheckoutFulfillmentPage },
+  { path: '/checkout/payment', Component: CheckoutPaymentPage },
+  { path: '/checkout/confirmation/:orderId', Component: OrderConfirmationPage },
+  { path: '/orders', Component: OrdersHistoryPage, title: 'Заказы' },
+  { path: '/orders/:id', Component: OrderDetailPage },
+  { path: '/profile', Component: ProfilePage, title: 'Профиль' },
   { path: '/init-data', Component: InitDataPage, title: 'Init Data' },
   { path: '/theme-params', Component: ThemeParamsPage, title: 'Theme Params' },
   { path: '/launch-params', Component: LaunchParamsPage, title: 'Launch Params' },

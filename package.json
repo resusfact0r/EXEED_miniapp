@@ -19,6 +19,7 @@
     "@telegram-apps/telegram-ui": "^2.1.8",
     "@tonconnect/ui-react": "^2.1.0",
     "eruda": "^3.4.1",
+    "puppeteer-core": "^24.43.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.0"
@@ -42,5 +43,10 @@
     "vite": "^6.2.4",
     "vite-plugin-mkcert": "^1.17.8",
     "vite-tsconfig-paths": "^5.1.4"
-  }
+  },
+  "description": "Telegram Mini App для поиска и заказа автозапчастей по артикулу: корзина, самовывоз/доставка (СДЭК, Яндекс.Доставка), оплата по QR-ссылке или безналично для юрлиц. Существующий Telegram-бот (регистрация/авторизация по телефону) — отдельный проект, не входит в этот репозиторий; здесь реализована сама торговая логика внутри miniapp и backend, который её обслуживает.",
+  "main": "eslint.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

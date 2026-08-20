@@ -1,212 +1,92 @@
-# Telegram Mini Apps React Template
+# tg-miniapp — заказ автозапчастей через Telegram Mini App
 
-This template demonstrates how developers can implement a single-page
-application on the Telegram Mini Apps platform using the following technologies
-and libraries:
+Telegram Mini App для поиска и заказа автозапчастей по артикулу: корзина, самовывоз/доставка (СДЭК, Яндекс.Доставка), оплата по QR-ссылке или безналично для юрлиц. Существующий Telegram-бот (регистрация/авторизация по телефону) — отдельный проект, не входит в этот репозиторий; здесь реализована сама торговая логика внутри miniapp и backend, который её обслуживает.
 
-- [React](https://react.dev/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [TON Connect](https://docs.ton.org/develop/dapps/ton-connect/overview)
-- [@telegram-apps SDK](https://docs.telegram-mini-apps.com/packages/telegram-apps-sdk/2-x)
-- [Telegram UI](https://github.com/Telegram-Mini-Apps/TelegramUI)
-- [Vite](https://vitejs.dev/)
+## Стек и структура репозитория
 
-> The template was created using [npm](https://www.npmjs.com/). Therefore, it is
-> required to use it for this project as well. Using other package managers, you
-> will receive a corresponding error.
+Репозиторий состоит из двух частей:
 
-## Install Dependencies
+```
+.
+├── src/            # Telegram Mini App — React 18 + TypeScript + Vite
+│                    # (@telegram-apps/sdk-react, @telegram-apps/telegram-ui)
+├── server/         # Backend — NestJS + PostgreSQL + Prisma
+└── docker-compose.yml   # Postgres для локальной разработки
+```
 
-If you have just cloned this template, you should install the project
-dependencies using the command:
+Frontend — статический SPA, деплоится отдельно (сейчас на GitHub Pages) и обращается к backend по HTTP через `VITE_API_BASE_URL`. Backend — отдельный деплоящийся Node-процесс со своей базой данных.
 
-```Bash
+## Функциональность
+
+- **Авторизация**: Mini App проверяет пользователя через Telegram `initData` (HMAC-подпись) и запрашивает номер телефона нативным Telegram API (`requestContact`), без участия бота.
+- **Каталог**: поиск товаров по артикулу/названию с постраничной подгрузкой («Показать ещё» — фронт не ограничен первой страницей результатов). Наполняется через admin API (`POST /api/admin/products`) или CSV-импорт (`npm run import:catalog`); сейчас в базе — реальный прайс-лист CHERY (~22 тыс. позиций), импортированный из выгрузки поставщика.
+- **Живая цена от поставщика (Avtoliga Parts)**: каталожная цена в БД — индикативная (обновляется при импорте/после заказов). Перед фактическим оформлением заказа backend всегда переспрашивает актуальную цену и остаток у [avtoliga-parts.ru](https://avtoliga-parts.ru) по каждому товару в корзине, берёт минимальную цену среди складов, накидывает наценку (`AVTOLIGA_MARKUP_PERCENT`, сейчас 14%) и только эту цену фиксирует в заказе. Если поставщик недоступен — заказ **не оформляется** (503), чтобы не продать ниже себестоимости на устаревших данных. См. `server/src/avtoliga`.
+- **Корзина**: хранится на сервере (переживает закрытие приложения), лимит 10 шт. на одну позицию.
+- **Оформление заказа**:
+  - способ получения — самовывоз (2 фиксированных адреса в Москве) или доставка (СДЭК / Яндекс.Доставка — выбор ПВЗ через прокси-эндпоинты backend, весогабариты не считаются);
+  - способ оплаты — QR-ссылка (генерируется вручную оператором) или безналичная оплата для юрлиц (свободный текст реквизитов организации);
+  - обязательное согласие с политикой невозврата.
+- **Заказы**: после оформления заказ виден в истории пользователя и в admin API (`GET /api/admin/orders`); опционально уходит вебхуком во внешнюю систему обработки (`EXTERNAL_ORDER_WEBHOOK_URL`).
+
+Подробное описание API, схемы БД и архитектурных решений — в `server/src` (модули `auth`, `catalog`, `cart`, `delivery`, `orders`, `avtoliga`).
+
+## Быстрый старт (локальная разработка)
+
+### 1. Backend
+
+```bash
+cd server
 npm install
+cp .env.example .env        # заполнить при необходимости (по умолчанию подходит для локальной разработки)
+docker compose -f ../docker-compose.yml up -d   # поднимает Postgres на порту 5433
+npx prisma migrate dev      # применить миграции
+npx prisma db seed          # наполнить тестовыми товарами
+npm run start:dev           # backend на http://localhost:3000/api
 ```
 
-## Scripts
+В `server/.env` для локальной разработки без реального Telegram-клиента важны два флага:
+- `ALLOW_UNSAFE_INIT_DATA=true` — позволяет авторизоваться с замоканной initData из `src/mockEnv.ts`, минуя проверку подписи бота.
+- `CDEK_MOCKED=true` / `YANDEX_MOCKED=true` — раздельные флаги на каждого перевозчика (фиктивный список ПВЗ вместо реального API, удобно без боевых кредов). Сейчас в проекте СДЭК уже переведён на боевой API (`CDEK_MOCKED=false`), Яндекс — пока на моках, ждёт ключа.
 
-This project contains the following scripts:
+**Оба флага обязательно выключить (`false`) перед продакшн-деплоем** — см. [DEPLOYMENT.md](DEPLOYMENT.md).
 
-- `dev`. Runs the application in development mode.
-- `dev:https`. Runs the application in development mode using locally created valid SSL-certificates.
-- `build`. Builds the application for production.
-- `lint`. Runs [eslint](https://eslint.org/) to ensure the code quality meets
-  the required standards.
-- `deploy`. Deploys the application to GitHub Pages.
+Отдельно: `AVTOLIGA_API_TOKEN` и `AVTOLIGA_ADDRESS_ID` — без них `POST /api/orders` всегда будет падать с `503` (живая проверка цены — обязательный шаг оформления, заглушки/мок-режима для неё нет). Токен выдаётся в личном кабинете avtoliga-parts.ru, `AddressId` — через `POST /get/addresses/` с этим токеном.
 
-To run a script, use the `npm run` command:
-
-```Bash
-npm run {script}
-# Example: npm run build
-```
-
-## Create Bot and Mini App
-
-Before you start, make sure you have already created a Telegram Bot. Here is
-a [comprehensive guide](https://docs.telegram-mini-apps.com/platform/creating-new-app)
-on how to do it.
-
-## Run
-
-Although Mini Apps are designed to be opened
-within [Telegram applications](https://docs.telegram-mini-apps.com/platform/about#supported-applications),
-you can still develop and test them outside of Telegram during the development
-process.
-
-To run the application in the development mode, use the `dev` script:
+### 2. Frontend
 
 ```bash
-npm run dev:https
+npm install
+echo "VITE_API_BASE_URL=http://localhost:3000/api" > .env.local
+npm run dev          # http://localhost:5173/tg-miniapp/
 ```
 
-> [!NOTE]
-> As long as we use [vite-plugin-mkcert](https://www.npmjs.com/package/vite-plugin-mkcert),
-> launching the dev mode for the first time, you may see sudo password request.
-> The plugin requires it to properly configure SSL-certificates. To disable the plugin, use the `npm run dev` command.
+Как и в оригинальном шаблоне, `src/mockEnv.ts` подменяет Telegram-окружение при разработке вне Telegram-клиента — приложение можно открыть в обычном браузере.
 
-After this, you will see a similar message in your terminal:
+## Скрипты
 
-```bash
-VITE v5.2.12  ready in 237 ms
+**Корень репозитория (frontend):**
+- `npm run dev` / `npm run dev:https` — режим разработки
+- `npm run build` — сборка (`tsc --noEmit && vite build`)
+- `npm run lint` — ESLint (примечание: в исходном шаблоне не настроена типизация для `recommendedTypeChecked` в `eslint.config.js` — известная проблема конфигурации, не связанная с бизнес-логикой)
+- `npm run deploy` — ручной деплой на GitHub Pages
 
-➜  Local:   https://localhost:5173/reactjs-template
-➜  Network: https://172.18.16.1:5173/reactjs-template
-➜  Network: https://172.19.32.1:5173/reactjs-template
-➜  Network: https://192.168.0.171:5173/reactjs-template
-➜  press h + enter to show help
-```
+**`server/` (backend):**
+- `npm run start:dev` — режим разработки с watch
+- `npm run build` / `npm run start:prod` — прод-сборка и запуск
+- `npm run prisma:migrate` / `npm run prisma:seed` — миграции и тестовые данные
+- `npm run import:catalog -- <path.csv>` — импорт каталога товаров из CSV (upsert по артикулу)
+- `npm run test` — юнит-тесты (Jest)
 
-Here, you can see the `Local` link, available locally, and `Network` links
-accessible to all devices in the same network with the current device.
+## Деплой в продакшн
 
-To view the application, you need to open the `Local`
-link (`https://localhost:5173/reactjs-template` in this example) in your
-browser:
-
-![Application](assets/application.png)
-
-It is important to note that some libraries in this template, such as
-`@telegram-apps/sdk`, are not intended for use outside of Telegram.
-
-Nevertheless, they appear to function properly. This is because the
-`src/mockEnv.ts` file, which is imported in the application's entry point (
-`src/index.ts`), employs the `mockTelegramEnv` function to simulate the Telegram
-environment. This trick convinces the application that it is running in a
-Telegram-based environment. Therefore, be cautious not to use this function in
-production mode unless you fully understand its implications.
-
-> [!WARNING]
-> Because we are using self-signed SSL certificates, the Android and iOS
-> Telegram applications will not be able to display the application. These
-> operating systems enforce stricter security measures, preventing the Mini App
-> from loading. To address this issue, refer to
-> [this guide](https://docs.telegram-mini-apps.com/platform/getting-app-link#remote).
-
-## Deploy
-
-This boilerplate uses GitHub Pages as the way to host the application
-externally. GitHub Pages provides a CDN which will let your users receive the
-application rapidly. Alternatively, you could use such services
-as [Heroku](https://www.heroku.com/) or [Vercel](https://vercel.com).
-
-### Manual Deployment
-
-This boilerplate uses the [gh-pages](https://www.npmjs.com/package/gh-pages)
-tool, which allows deploying your application right from your PC.
-
-#### Configuring
-
-Before running the deployment process, ensure that you have done the following:
-
-1. Replaced the `homepage` value in `package.json`. The GitHub Pages deploy tool
-   uses this value to
-   determine the related GitHub project.
-2. Replaced the `base` value in `vite.config.ts` and have set it to the name of
-   your GitHub
-   repository. Vite will use this value when creating paths to static assets.
-
-For instance, if your GitHub username is `telegram-mini-apps` and the repository
-name is `is-awesome`, the value in the `homepage` field should be the following:
-
-```json
-{
-  "homepage": "https://telegram-mini-apps.github.io/is-awesome"
-}
-```
-
-And `vite.config.ts` should have this content:
-
-```ts
-export default defineConfig({
-  base: '/is-awesome/',
-  // ...
-});
-```
-
-You can find more information on configuring the deployment in the `gh-pages`
-[docs](https://github.com/tschaub/gh-pages?tab=readme-ov-file#github-pages-project-sites).
-
-#### Before Deploying
-
-Before deploying the application, make sure that you've built it and going to
-deploy the fresh static files:
-
-```bash
-npm run build
-```
-
-Then, run the deployment process, using the `deploy` script:
-
-```Bash
-npm run deploy
-```
-
-After the deployment completed successfully, visit the page with data according
-to your username and repository name. Here is the page link example using the
-data mentioned above:
-https://telegram-mini-apps.github.io/is-awesome
-
-### GitHub Workflow
-
-To simplify the deployment process, this template includes a
-pre-configured [GitHub workflow](.github/workflows/github-pages-deploy.yml) that
-automatically deploys the project when changes are pushed to the `master`
-branch.
-
-To enable this workflow, create a new environment (or edit the existing one) in
-the GitHub repository settings and name it `github-pages`. Then, add the
-`master` branch to the list of deployment branches.
-
-You can find the environment settings using this
-URL: `https://github.com/{username}/{repository}/settings/environments`.
-
-![img.png](.github/deployment-branches.png)
-
-In case, you don't want to do it automatically, or you don't use GitHub as the
-project codebase, remove the `.github` directory.
-
-### GitHub Web Interface
-
-Alternatively, developers can configure automatic deployment using the GitHub
-web interface. To do this, follow the link:
-`https://github.com/{username}/{repository}/settings/pages`.
+Пошаговая инструкция (переменные окружения, миграции, чек-лист безопасности, настройка бота через BotFather, смоук-тест) — в [DEPLOYMENT.md](DEPLOYMENT.md). Конкретно про деплой на Cloudflare (Pages для frontend + постоянный Tunnel для backend) — в [DEPLOYMENT-CLOUDFLARE.md](DEPLOYMENT-CLOUDFLARE.md).
 
 ## TON Connect
 
-This boilerplate utilizes
-the [TON Connect](https://docs.ton.org/develop/dapps/ton-connect/overview)
-project to demonstrate how developers can integrate functionality related to TON
-cryptocurrency.
+В шаблоне остался нетронутым интеграционный код TON Connect (`@tonconnect/ui-react`, страница `/ton-connect`, `public/tonconnect-manifest.json`) — он не относится к функциональности заказа запчастей и не используется бизнес-логикой. Можно удалить, если не планируется использовать TON-кошельки, либо оставить как есть.
 
-The TON Connect manifest used in this boilerplate is stored in the `public`
-folder, where all publicly accessible static files are located. Remember
-to [configure](https://docs.ton.org/develop/dapps/ton-connect/manifest) this
-file according to your project's information.
+## Полезные ссылки
 
-## Useful Links
-
-- [Platform documentation](https://docs.telegram-mini-apps.com/)
-- [@telegram-apps/sdk-react documentation](https://docs.telegram-mini-apps.com/packages/telegram-apps-sdk-react)
-- [Telegram developers community chat](https://t.me/devs)
+- [Документация платформы Telegram Mini Apps](https://docs.telegram-mini-apps.com/)
+- [@telegram-apps/sdk-react](https://docs.telegram-mini-apps.com/packages/telegram-apps-sdk-react)
+- [NestJS](https://docs.nestjs.com/) / [Prisma](https://www.prisma.io/docs)
