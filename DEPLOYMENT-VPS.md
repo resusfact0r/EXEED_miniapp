@@ -129,6 +129,8 @@ npx prisma migrate deploy    # НЕ migrate dev — идемпотентно, б
 | `ALLOW_UNSAFE_INIT_DATA` | `false` |
 | `ADMIN_API_TOKEN` | новый случайный секрет (уже сгенерирован, не `devtoken`) |
 | `CDEK_MOCKED` | `false` |
+| `MINIAPP_URL` | `https://exeedbot.ru` |
+| `TELEGRAM_WEBHOOK_SECRET` | новый случайный секрет (`openssl rand -hex 32`) — тот же указывается в `setWebhook` (см. §10) |
 | остальное (`TELEGRAM_BOT_TOKEN`, `CDEK_*`, `AVTOLIGA_*`) | те же боевые значения, что и в dev `server/.env` |
 
 Наполнение каталога (боевой источник — `chery-catalog.csv`, уже залит вместе с `dist/`):
@@ -245,15 +247,29 @@ curl https://exeedbot.ru/api/health
 
 ---
 
-## 10. BotFather + смоук-тест
+## 10. Бот: Menu Button + webhook для `/start` + смоук-тест
 
-1. [@BotFather](https://t.me/BotFather) → `/mybots` → выбрать бота → **Bot Settings → Menu Button**
-   → указать `https://exeedbot.ru`.
-2. Пройти чек-лист из [DEPLOYMENT.md §6](DEPLOYMENT.md#6-смоук-тест-после-деплоя) на реальном
-   Telegram-клиенте: поиск товара, корзина (клэмп на 10, персистентность), самовывоз/СДЭК с
-   реальными ПВЗ, оба способа оплаты, чекбокс политики, заказ виден в
-   `GET https://exeedbot.ru/api/admin/orders` (заголовок `X-Admin-Token`), цена в заказе
-   отличается от каталожной на актуальную наценку Avtoliga.
+1. Menu Button ✅ уже сделано — выставлен напрямую через Bot API (`setChatMenuButton`), указывает
+   на `https://exeedbot.ru`, без захода в BotFather.
+2. Webhook для `/start` (обработчик уже в коде, `server/src/bot`) — одноразовая регистрация после
+   деплоя backend с новым кодом:
+
+   ```bash
+   curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+     -d "url=https://exeedbot.ru/api/bot/webhook" \
+     -d "secret_token=<значение TELEGRAM_WEBHOOK_SECRET из server/.env>"
+   ```
+
+   Проверка: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"` — `url` должен быть
+   `https://exeedbot.ru/api/bot/webhook`, `last_error_message` — пусто.
+3. Пройти чек-лист из [DEPLOYMENT.md §6](DEPLOYMENT.md#6-смоук-тест-после-деплоя) на реальном
+   Telegram-клиенте: `/start` отвечает сообщением с кнопкой → открывает miniapp; новый пользователь
+   видит стартовую страницу → делится номером → попадает в каталог; поиск товара, корзина (клэмп
+   на 10, персистентность, открытие карточки товара из корзины и возврат обратно), самовывоз/СДЭК
+   с выбором города и реальными ПВЗ (автопереход после выбора), оба способа оплаты, чекбокс
+   политики кликается в любой точке строки, заказ виден в `GET https://exeedbot.ru/api/admin/orders`
+   (заголовок `X-Admin-Token`), цена в заказе отличается от каталожной на актуальную наценку Avtoliga,
+   настройки в профиле сохраняются и подставляются в следующий чекаут.
 
 ---
 

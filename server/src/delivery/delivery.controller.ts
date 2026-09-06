@@ -8,6 +8,10 @@ import { CdekService } from './cdek.service';
 import { YandexService } from './yandex.service';
 
 class PvzQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  cityCode!: number;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -35,9 +39,14 @@ export class DeliveryController {
     return PICKUP_ADDRESSES;
   }
 
+  @Get('cdek/cities')
+  getCdekCities(@Query('query') query = '') {
+    return this.cdekService.getCities(query);
+  }
+
   @Get('cdek/pvz')
   getCdekPvz(@Query() query: PvzQueryDto) {
-    return this.cdekService.getPvz(query.page, query.pageSize);
+    return this.cdekService.getPvz(query.cityCode, query.page, query.pageSize);
   }
 
   @Get('yandex/pvz')

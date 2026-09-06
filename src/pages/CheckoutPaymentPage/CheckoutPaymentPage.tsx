@@ -3,6 +3,7 @@ import { useEffect, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { createOrder } from '@/api/orders.ts';
+import { useAuth } from '@/contexts/AuthContext.tsx';
 import { useCart } from '@/contexts/CartContext.tsx';
 import { useCheckout } from '@/contexts/CheckoutContext.tsx';
 import { Page } from '@/components/Page.tsx';
@@ -11,6 +12,7 @@ import { PolicyCheckbox } from '@/components/PolicyCheckbox/PolicyCheckbox.tsx';
 
 export const CheckoutPaymentPage: FC = () => {
   const { state, setState, reset } = useCheckout();
+  const { user } = useAuth();
   const { cart, refresh: refreshCart } = useCart();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -22,6 +24,14 @@ export const CheckoutPaymentPage: FC = () => {
     void refreshCart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Same "only fill in what's unset" pre-fill as the fulfillment step, from Profile settings.
+  useEffect(() => {
+    if (!state.paymentMethod && user?.preferredPaymentMethod) {
+      setState({ paymentMethod: user.preferredPaymentMethod });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const hasPriceChanges = cart?.items.some((line) => line.priceChanged) ?? false;
 

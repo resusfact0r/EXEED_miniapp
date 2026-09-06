@@ -1,10 +1,13 @@
 import type { ComponentType, JSX } from 'react';
 import { Navigate } from 'react-router-dom';
+import { Spinner } from '@telegram-apps/telegram-ui';
 
+import { useAuth } from '@/contexts/AuthContext.tsx';
 import { InitDataPage } from '@/pages/InitDataPage.tsx';
 import { LaunchParamsPage } from '@/pages/LaunchParamsPage.tsx';
 import { ThemeParamsPage } from '@/pages/ThemeParamsPage.tsx';
 import { TONConnectPage } from '@/pages/TONConnectPage/TONConnectPage';
+import { WelcomePage } from '@/pages/WelcomePage/WelcomePage.tsx';
 import { CatalogPage } from '@/pages/CatalogPage/CatalogPage.tsx';
 import { ProductDetailPage } from '@/pages/ProductDetailPage/ProductDetailPage.tsx';
 import { CartPage } from '@/pages/CartPage/CartPage.tsx';
@@ -22,10 +25,21 @@ interface Route {
   icon?: JSX.Element;
 }
 
-const RedirectToCatalog: ComponentType = () => <Navigate to="/catalog" replace />;
+// A first-time user (no phone on file yet) sees the welcome/onboarding screen; a returning user
+// goes straight to the catalog, same as before. Kept as a route-level gate (rather than baking
+// this into WelcomePage itself) so the loading/redirect logic lives in one obvious place.
+const HomeGate: ComponentType = () => {
+  const { hasPhone, loading } = useAuth();
+
+  if (loading) {
+    return <Spinner size="m" />;
+  }
+
+  return hasPhone ? <Navigate to="/catalog" replace /> : <WelcomePage />;
+};
 
 export const routes: Route[] = [
-  { path: '/', Component: RedirectToCatalog },
+  { path: '/', Component: HomeGate },
   { path: '/catalog', Component: CatalogPage, title: 'Каталог' },
   { path: '/product/:id', Component: ProductDetailPage },
   { path: '/cart', Component: CartPage, title: 'Корзина' },

@@ -11,7 +11,7 @@ import { QuantityStepper } from '@/components/QuantityStepper/QuantityStepper.ts
 export const ProductDetailPage: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { cart, addItem } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -43,6 +43,7 @@ export const ProductDetailPage: FC = () => {
   }
 
   const outOfStock = product.stockQty <= 0;
+  const cartLine = cart?.items.find((item) => item.productId === product.id);
 
   const handleAdd = async () => {
     setAdding(true);
@@ -56,8 +57,12 @@ export const ProductDetailPage: FC = () => {
 
   return (
     <Page>
-      <Section header={product.name} footer={`Артикул: ${product.code}`}>
+      <Section header={product.name}>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ color: 'var(--tgui--hint_color)' }}>Артикул: {product.code}</div>
+          {cartLine && (
+            <div style={{ color: 'var(--tgui--hint_color)' }}>В корзине: {cartLine.quantity} шт.</div>
+          )}
           <div style={{ fontSize: 20, fontWeight: 600 }}>{product.price} ₽</div>
           <div>{outOfStock ? 'Нет в наличии' : `В наличии: ${product.stockQty} шт.`}</div>
           {product.description && <div>{product.description}</div>}

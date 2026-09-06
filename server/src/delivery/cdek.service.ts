@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { NormalizedPvz, PvzPage } from './types';
+import type { NormalizedCity, NormalizedPvz, PvzPage } from './types';
 
 // TODO: estimatedDeliveryDays is a stub - replace with a real calculation (e.g. CDEK's
 // /v2/calculator/tarifflist) once weight/dimensions per order are available.
@@ -9,12 +9,13 @@ const MOCK_PVZ: NormalizedPvz[] = [
   { carrier: 'CDEK', id: 'MSK456', address: 'г. Москва, ул. Примерная, д. 5', name: 'CDEK Примерная', workingHours: '10:00-20:00', estimatedDeliveryDays: '2-4 дня' },
 ];
 
-const STUB_ESTIMATED_DELIVERY_DAYS = '1-3 дня';
+// Moscow, St. Petersburg - just enough for the picker to be usable while CDEK_MOCKED=true.
+const MOCK_CITIES: NormalizedCity[] = [
+  { code: 44, name: 'Москва', region: 'Москва' },
+  { code: 137, name: 'Санкт-Петербург', region: 'Санкт-Петербург' },
+];
 
-// The app only supports Moscow pickup/delivery for now (see PICKUP_ADDRESSES) - there's no
-// city picker in the UI yet, so we hardcode CDEK's numeric code for Moscow.
-// TODO: replace with a real city resolver (CDEK's /v2/location/cities) once other cities are supported.
-const DEFAULT_CDEK_CITY_CODE = 44;
+const STUB_ESTIMATED_DELIVERY_DAYS = '1-3 дня';
 
 interface CdekTokenCache {
   token: string;
@@ -32,12 +33,48 @@ interface CdekDeliveryPoint {
   };
 }
 
+interface CdekCity {
+  code: number;
+  city: string;
+  region?: string;
+}
+
 @Injectable()
 export class CdekService {
   private readonly logger = new Logger(CdekService.name);
   private tokenCache: CdekTokenCache | null = null;
 
-  async getPvz(page = 1, pageSize = 20): Promise<PvzPage> {
+  async getCities(query: string): Promise<NormalizedCity[]> {
+    if (process.env.CDEK_MOCKED !== 'false') {
+      const q = query.trim().toLowerCase();
+      return q ? MOCK_CITIES.filter((c) => c.name.toLowerCase().startsWith(q)) : MOCK_CITIES;
+    }
+    if (!query.trim()) {
+      return [];
+    }
+
+    try {
+      const token = await this.getAccessToken();
+      const baseUrl = process.env.CDEK_API_BASE_URL ?? 'https://api.cdek.ru';
+      const url = new URL('/v2/location/cities', baseUrl);
+      url.searchParams.set('country_codes', 'RU');
+      url.searchParams.set('city', query);
+      url.searchParams.set('size', '20');
+
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) {
+        throw new Error(`CDEK API responded with ${response.status}`);
+      }
+
+      const data: CdekCity[] = await response.json();
+      return data.map((c) => ({ code: c.code, name: c.city, region: c.region }));
+    } catch (err) {
+      this.logger.error(`Failed to fetch CDEK cities, falling back to empty list: ${(err as Error).message}`);
+      return [];
+    }
+  }
+
+  async getPvz(cityCode: number, page = 1, pageSize = 20): Promise<PvzPage> {
     if (process.env.CDEK_MOCKED !== 'false') {
       return { items: MOCK_PVZ, hasMore: false };
     }
@@ -46,7 +83,7 @@ export class CdekService {
       const token = await this.getAccessToken();
       const baseUrl = process.env.CDEK_API_BASE_URL ?? 'https://api.cdek.ru';
       const url = new URL('/v2/deliverypoints', baseUrl);
-      url.searchParams.set('city_code', String(DEFAULT_CDEK_CITY_CODE));
+      url.searchParams.set('city_code', String(cityCode));
       // CDEK's pagination is 0-indexed; ours (matching the catalog search convention) is 1-indexed.
       url.searchParams.set('page', String(page - 1));
       url.searchParams.set('size', String(pageSize));

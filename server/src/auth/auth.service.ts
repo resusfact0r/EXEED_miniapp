@@ -3,6 +3,7 @@ import type { User } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitContactDto } from './dto/submit-contact.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,13 @@ export class AuthService {
     return this.prisma.user.update({
       where: { id: user.id },
       data: { phone: dto.contact.phone_number },
+    });
+  }
+
+  updatePreferences(user: User, dto: UpdatePreferencesDto): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: dto,
     });
   }
 }

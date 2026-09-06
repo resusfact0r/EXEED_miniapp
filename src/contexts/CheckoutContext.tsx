@@ -7,6 +7,9 @@ export interface CheckoutState {
   pickupAddressCode: PickupAddress['code'] | null;
   pickupAddressLabel: string | null;
   deliveryCarrier: DeliveryCarrier | null;
+  /** CDEK's numeric city code (needed for the CDEK PVZ API) - null for Yandex, which takes a name. */
+  cityCode: number | null;
+  cityName: string | null;
   deliveryPvzId: string | null;
   deliveryPvzAddress: string | null;
   paymentMethod: PaymentMethod | null;
@@ -19,6 +22,8 @@ const initialState: CheckoutState = {
   pickupAddressCode: null,
   pickupAddressLabel: null,
   deliveryCarrier: null,
+  cityCode: null,
+  cityName: null,
   deliveryPvzId: null,
   deliveryPvzAddress: null,
   paymentMethod: null,

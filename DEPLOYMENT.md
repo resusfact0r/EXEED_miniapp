@@ -36,6 +36,8 @@
 | `PORT` | Порт, на котором слушает процесс (обычно берётся платформой автоматически) |
 | `CORS_ORIGIN` | Точный origin продакшн miniapp, например `https://your-username.github.io` — **не `*`** |
 | `TELEGRAM_BOT_TOKEN` | Боевой токен бота из BotFather |
+| `MINIAPP_URL` | Боевой HTTPS-URL miniapp — используется в кнопке «Открыть каталог» в ответе на `/start` |
+| `TELEGRAM_WEBHOOK_SECRET` | Случайный секрет для `POST /api/bot/webhook` (сверяется с `secret_token` в апдейтах от Telegram, см. §4) — без него эндпоинт примет апдейт от кого угодно |
 | `ALLOW_UNSAFE_INIT_DATA` | **`false`** — обязательно. В деве это `true`, чтобы обходить проверку подписи для замоканной initData; в проде это дыра в авторизации |
 | `ADMIN_API_TOKEN` | Новый случайный секрет (не `devtoken`!), например `openssl rand -hex 32` |
 | `CDEK_API_BASE_URL` | `https://api.cdek.ru` (боевой, не `api.edu.cdek.ru`) |
@@ -113,13 +115,19 @@ npm run build   # tsc --noEmit && vite build -> dist/
 
 ---
 
-## 4. Настройка бота (BotFather)
+## 4. Настройка бота (BotFather + webhook)
 
-Существующий бот (вне скоупа этого репозитория) должен указывать на боевой URL miniapp:
+1. В [@BotFather](https://t.me/BotFather) → `/mybots` → выбрать бота → **Bot Settings → Menu Button** — указать боевой HTTPS-URL miniapp. (Это можно сделать и без захода в BotFather — через Bot API `setChatMenuButton`, см. историю чата/скрипты этого проекта.)
+2. Токен этого же бота — то значение, которое должно быть в `TELEGRAM_BOT_TOKEN` на backend (иначе валидация `initData` не пройдёт ни при каких обстоятельствах, так как HMAC считается по секрету бота).
+3. Зарегистрировать webhook, чтобы `/start` отвечал сообщением с кнопкой запуска miniapp (обработчик уже есть в этом репозитории, `server/src/bot`) — одноразовый вызов после того, как backend задеплоен и доступен по HTTPS:
 
-1. В [@BotFather](https://t.me/BotFather) → `/mybots` → выбрать бота → **Bot Settings → Menu Button** (или **Configure Mini App**, в зависимости от текущей версии интерфейса) → указать боевой HTTPS-URL miniapp (GitHub Pages URL или ваш домен).
-2. Если бот открывает miniapp по кнопке в сообщениях (`web_app` в inline-кнопке) — обновить URL в коде бота на боевой.
-3. Токен этого же бота — то значение, которое должно быть в `TELEGRAM_BOT_TOKEN` на backend (иначе валидация `initData` не пройдёт ни при каких обстоятельствах, так как HMAC считается по секрету бота).
+   ```bash
+   curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+     -d "url=https://<ваш-домен>/api/bot/webhook" \
+     -d "secret_token=<то же значение, что в TELEGRAM_WEBHOOK_SECRET>"
+   ```
+
+   Проверить регистрацию: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"`.
 
 ---
 
@@ -132,6 +140,7 @@ npm run build   # tsc --noEmit && vite build -> dist/
 - [ ] `server/.env` и корневой `.env.local`/`.env.production` не закоммичены с секретами (в `.gitignore` уже есть `server/.env` и `*.local`; `.env.production` содержит только публичный URL, коммитить можно)
 - [ ] Postgres доступен только backend'у (не открыт наружу), есть бэкапы
 - [ ] Токен бота (`TELEGRAM_BOT_TOKEN`) хранится как секрет платформы деплоя, не в git
+- [ ] `TELEGRAM_WEBHOOK_SECRET` установлен (не пусто) — иначе `POST /api/bot/webhook` примет апдейт от кого угодно, не только от Telegram
 - [ ] `AVTOLIGA_API_TOKEN` действителен и не пустой — иначе оформление заказа сломано полностью (не деградация, а полный отказ checkout)
 - [ ] `AVTOLIGA_MARKUP_PERCENT` выставлен осознанно (не забыт со значением по умолчанию) — это напрямую бьёт по марже
 

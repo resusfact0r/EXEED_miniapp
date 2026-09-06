@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { User } from '@prisma/client';
 
 import { TelegramAuthGuard } from '../common/guards/telegram-auth.guard';
@@ -12,6 +13,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   create(@CurrentUser() user: User, @Body() dto: CreateOrderDto) {
     return this.ordersService.createFromCart(user.id, dto);
   }

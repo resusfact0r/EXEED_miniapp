@@ -48,6 +48,12 @@ model User {
   lastSeenAt  DateTime   @updatedAt
   cartItems   CartItem[]
   orders      Order[]
+
+  /// Checkout pre-fills from these when set, but the user can always change them per order -
+  /// this is just a convenience default, not an enforced setting.
+  preferredFulfillmentType FulfillmentType?
+  preferredDeliveryCarrier DeliveryCarrier?
+  preferredPaymentMethod   PaymentMethod?
 }
 
 model Product {

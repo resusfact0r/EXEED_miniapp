@@ -6,6 +6,15 @@ export interface UserProfile {
   lastName: string | null;
   phone: string | null;
   hasPhone: boolean;
+  preferredFulfillmentType: FulfillmentType | null;
+  preferredDeliveryCarrier: DeliveryCarrier | null;
+  preferredPaymentMethod: PaymentMethod | null;
+}
+
+export interface UpdatePreferencesPayload {
+  preferredFulfillmentType?: FulfillmentType;
+  preferredDeliveryCarrier?: DeliveryCarrier;
+  preferredPaymentMethod?: PaymentMethod;
 }
 
 export interface Product {
@@ -65,6 +74,12 @@ export interface PvzPage {
   hasMore: boolean;
 }
 
+export interface City {
+  code: number;
+  name: string;
+  region?: string;
+}
+
 export type FulfillmentType = 'PICKUP' | 'DELIVERY';
 export type DeliveryCarrier = 'CDEK' | 'YANDEX';
 export type PaymentMethod = 'QR_LINK' | 'LEGAL_ENTITY';
@@ -103,6 +118,7 @@ export interface Order {
   fulfillmentType: FulfillmentType;
   pickupAddressLabel: string | null;
   deliveryCarrier: DeliveryCarrier | null;
+  deliveryPvzId: string | null;
   deliveryPvzAddress: string | null;
   paymentMethod: PaymentMethod;
   orgCardDetails: string | null;

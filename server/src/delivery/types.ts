@@ -15,3 +15,9 @@ export interface PvzPage {
   /** True if requesting the next page is likely to return more results. */
   hasMore: boolean;
 }
+
+export interface NormalizedCity {
+  code: number;
+  name: string;
+  region?: string;
+}

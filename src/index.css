@@ -2,4 +2,8 @@ body {
   background: var(--tg-theme-secondary-bg-color, white);
   padding: 0;
   margin: 0;
+  /* Telegram UI components pick this up via their own scoped classes, but plain elements
+     written in app code (raw <div>/<p>) don't - without this they fall back to the
+     browser/webview's default font, which is often serif (e.g. Times New Roman on price text). */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
 }
