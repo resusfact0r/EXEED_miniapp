@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { paginateAndFilter } from './pvz-search';
 import type { NormalizedCity, NormalizedPvz, PvzPage } from './types';
 
 // TODO: estimatedDeliveryDays is a stub - replace with a real calculation (e.g. CDEK's
@@ -16,6 +17,10 @@ const MOCK_CITIES: NormalizedCity[] = [
 ];
 
 const STUB_ESTIMATED_DELIVERY_DAYS = '1-3 дня';
+
+// CDEK's largest cities sit under 500 points, so one request covers a whole city.
+const MAX_PVZ_PER_CITY = 1000;
+const PVZ_CACHE_TTL_MS = 15 * 60 * 1000;
 
 interface CdekTokenCache {
   token: string;
@@ -43,6 +48,7 @@ interface CdekCity {
 export class CdekService {
   private readonly logger = new Logger(CdekService.name);
   private tokenCache: CdekTokenCache | null = null;
+  private readonly pvzCache = new Map<number, { items: NormalizedPvz[]; expiresAt: number }>();
 
   async getCities(query: string): Promise<NormalizedCity[]> {
     if (process.env.CDEK_MOCKED !== 'false') {
@@ -74,9 +80,26 @@ export class CdekService {
     }
   }
 
-  async getPvz(cityCode: number, page = 1, pageSize = 20): Promise<PvzPage> {
+  async getPvz(cityCode: number, page = 1, pageSize = 20, query = ''): Promise<PvzPage> {
+    const all = await this.getAllPvzForCity(cityCode);
+    return paginateAndFilter(all, page, pageSize, query);
+  }
+
+  /**
+   * CDEK has no address-substring search on /v2/deliverypoints, and a big city is ~500 points
+   * (Moscow: 498, ~1MB of raw JSON), so we pull the whole city once, normalize it down to the
+   * few fields we show, and keep it in memory. Search then filters that list server-side -
+   * the phone never downloads the full list, and CDEK sees one request per city per TTL
+   * instead of one per keystroke.
+   */
+  private async getAllPvzForCity(cityCode: number): Promise<NormalizedPvz[]> {
+    const cached = this.pvzCache.get(cityCode);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.items;
+    }
+
     if (process.env.CDEK_MOCKED !== 'false') {
-      return { items: MOCK_PVZ, hasMore: false };
+      return MOCK_PVZ;
     }
 
     try {
@@ -84,9 +107,7 @@ export class CdekService {
       const baseUrl = process.env.CDEK_API_BASE_URL ?? 'https://api.cdek.ru';
       const url = new URL('/v2/deliverypoints', baseUrl);
       url.searchParams.set('city_code', String(cityCode));
-      // CDEK's pagination is 0-indexed; ours (matching the catalog search convention) is 1-indexed.
-      url.searchParams.set('page', String(page - 1));
-      url.searchParams.set('size', String(pageSize));
+      url.searchParams.set('size', String(MAX_PVZ_PER_CITY));
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -108,12 +129,11 @@ export class CdekService {
         lon: point.location.longitude,
       }));
 
-      // CDEK doesn't return a total count on this endpoint - a full page means there's
-      // probably more, an under-full page means we've reached the end.
-      return { items, hasMore: data.length === pageSize };
+      this.pvzCache.set(cityCode, { items, expiresAt: Date.now() + PVZ_CACHE_TTL_MS });
+      return items;
     } catch (err) {
       this.logger.error(`Failed to fetch CDEK PVZ list, falling back to empty list: ${(err as Error).message}`);
-      return { items: [], hasMore: false };
+      return [];
     }
   }
 

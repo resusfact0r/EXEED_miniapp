@@ -1,8 +1,9 @@
 import { Button, Cell, List, Placeholder, Section, SegmentedControl, Spinner } from '@telegram-apps/telegram-ui';
-import { useState, type FC } from 'react';
+import { useEffect, useState, type FC } from 'react';
 
 import { patchPreferences } from '@/api/auth.ts';
-import type { DeliveryCarrier, FulfillmentType, PaymentMethod } from '@/api/types.ts';
+import { getCarriers } from '@/api/delivery.ts';
+import type { Carrier, DeliveryCarrier, FulfillmentType, PaymentMethod } from '@/api/types.ts';
 import { useAuth } from '@/contexts/AuthContext.tsx';
 import { useRequestPhone } from '@/hooks/useRequestPhone.ts';
 import { Page } from '@/components/Page.tsx';
@@ -12,6 +13,12 @@ export const ProfilePage: FC = () => {
   const { user, loading, error, setUser } = useAuth();
   const { request, loading: requesting, error: requestError } = useRequestPhone(setUser);
   const [savingPrefs, setSavingPrefs] = useState(false);
+  // Same source as checkout, so the profile never offers a carrier the order flow won't show.
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
+
+  useEffect(() => {
+    void getCarriers().then(setCarriers).catch(() => undefined);
+  }, []);
 
   const savePreference = async (patch: {
     preferredFulfillmentType?: FulfillmentType;
@@ -81,24 +88,22 @@ export const ProfilePage: FC = () => {
               </SegmentedControl.Item>
             </SegmentedControl>
           </Cell>
-          <Cell subtitle="Перевозчик">
-            <SegmentedControl>
-              <SegmentedControl.Item
-                selected={user.preferredDeliveryCarrier === 'CDEK'}
-                disabled={savingPrefs}
-                onClick={() => void savePreference({ preferredDeliveryCarrier: 'CDEK' })}
-              >
-                СДЭК
-              </SegmentedControl.Item>
-              <SegmentedControl.Item
-                selected={user.preferredDeliveryCarrier === 'YANDEX'}
-                disabled={savingPrefs}
-                onClick={() => void savePreference({ preferredDeliveryCarrier: 'YANDEX' })}
-              >
-                Яндекс.Доставка
-              </SegmentedControl.Item>
-            </SegmentedControl>
-          </Cell>
+          {carriers.length > 1 && (
+            <Cell subtitle="Перевозчик">
+              <SegmentedControl>
+                {carriers.map((c) => (
+                  <SegmentedControl.Item
+                    key={c.key}
+                    selected={user.preferredDeliveryCarrier === c.key}
+                    disabled={savingPrefs}
+                    onClick={() => void savePreference({ preferredDeliveryCarrier: c.key })}
+                  >
+                    {c.label}
+                  </SegmentedControl.Item>
+                ))}
+              </SegmentedControl>
+            </Cell>
+          )}
           <Cell subtitle="Способ оплаты">
             <SegmentedControl>
               <SegmentedControl.Item

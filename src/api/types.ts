@@ -72,6 +72,12 @@ export interface Pvz {
 export interface PvzPage {
   items: Pvz[];
   hasMore: boolean;
+  total: number;
+}
+
+export interface Carrier {
+  key: DeliveryCarrier;
+  label: string;
 }
 
 export interface City {

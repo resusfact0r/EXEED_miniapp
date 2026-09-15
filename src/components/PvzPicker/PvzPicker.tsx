@@ -1,8 +1,8 @@
-import { Button, Cell, List, Placeholder, Radio, Section, SegmentedControl, Spinner } from '@telegram-apps/telegram-ui';
+import { Button, Cell, Input, List, Placeholder, Radio, Section, SegmentedControl, Spinner } from '@telegram-apps/telegram-ui';
 import { useEffect, useState, type FC } from 'react';
 
-import { getCdekPvz, getYandexPvz } from '@/api/delivery.ts';
-import type { DeliveryCarrier, Pvz } from '@/api/types.ts';
+import { getCarriers, getCdekPvz, getYandexPvz } from '@/api/delivery.ts';
+import type { Carrier, DeliveryCarrier, Pvz } from '@/api/types.ts';
 
 interface PvzPickerProps {
   selectedCarrier: DeliveryCarrier | null;
@@ -13,11 +13,6 @@ interface PvzPickerProps {
   onSelectPvz: (pvz: Pvz) => void;
 }
 
-const CARRIERS: { key: DeliveryCarrier; label: string }[] = [
-  { key: 'CDEK', label: 'СДЭК' },
-  { key: 'YANDEX', label: 'Яндекс.Доставка' },
-];
-
 export const PvzPicker: FC<PvzPickerProps> = ({
   selectedCarrier,
   selectedPvzId,
@@ -26,33 +21,59 @@ export const PvzPicker: FC<PvzPickerProps> = ({
   onSelectCarrier,
   onSelectPvz,
 }) => {
-  const carrier = selectedCarrier ?? 'CDEK';
-  // CDEK's API is keyed by numeric city code; Yandex's (still mocked) takes a free-text name.
-  const cityReady = carrier === 'CDEK' ? cityCode !== null : Boolean(cityName);
-
+  // Carriers come from the backend rather than a hardcoded list: one still running on mock data
+  // is hidden in production, so customers never see made-up pickup points.
+  const [carriers, setCarriers] = useState<Carrier[] | null>(null);
   const [pvzList, setPvzList] = useState<Pvz[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    if (!cityReady) {
+    void getCarriers().then((list) => {
+      setCarriers(list);
+      // A carrier saved earlier (e.g. from profile preferences) may no longer be offered - say
+      // Yandex went back to mock mode. Fall back to the first available one instead of trying
+      // to load a carrier the backend won't serve.
+      if (selectedCarrier && list.length > 0 && !list.some((c) => c.key === selectedCarrier)) {
+        onSelectCarrier(list[0].key);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const carrier = selectedCarrier ?? carriers?.[0]?.key ?? null;
+  // CDEK's API is keyed by numeric city code; Yandex's (still mocked) takes a free-text name.
+  const cityReady = carrier === 'CDEK' ? cityCode !== null : Boolean(cityName);
+
+  const fetchPage = (targetPage: number, search: string) =>
+    carrier === 'CDEK' ? getCdekPvz(cityCode!, targetPage, search) : getYandexPvz(cityName ?? '', targetPage, search);
+
+  // Refetch on carrier/city change and on every (debounced) keystroke, always from page 1.
+  useEffect(() => {
+    if (!carrier || !cityReady) {
       setPvzList(null);
       return;
     }
-    setPvzList(null);
-    setPage(1);
-    const fetcher = carrier === 'CDEK' ? () => getCdekPvz(cityCode!, 1) : () => getYandexPvz(cityName!);
-    void fetcher().then((result) => {
-      setPvzList(result.items);
-      setHasMore(result.hasMore);
-    });
-  }, [carrier, cityCode, cityName, cityReady]);
+    const timeout = setTimeout(() => {
+      setPvzList(null);
+      setPage(1);
+      void fetchPage(1, query).then((result) => {
+        setPvzList(result.items);
+        setHasMore(result.hasMore);
+        setTotal(result.total);
+      });
+    }, 300);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carrier, cityCode, cityName, cityReady, query]);
 
   const loadMore = () => {
-    if (carrier !== 'CDEK' || cityCode === null) return;
+    if (!carrier) return;
     setLoadingMore(true);
-    getCdekPvz(cityCode, page + 1)
+    fetchPage(page + 1, query)
       .then((result) => {
         setPvzList((prev) => [...(prev ?? []), ...result.items]);
         setHasMore(result.hasMore);
@@ -61,44 +82,67 @@ export const PvzPicker: FC<PvzPickerProps> = ({
       .finally(() => setLoadingMore(false));
   };
 
+  if (carriers && carriers.length === 0) {
+    return (
+      <Section header="Способ доставки">
+        <Placeholder description="Доставка транспортными компаниями временно недоступна — выберите самовывоз" />
+      </Section>
+    );
+  }
+
   return (
     <List>
       <Section header="Способ доставки">
-        <SegmentedControl>
-          {CARRIERS.map((c) => (
-            <SegmentedControl.Item key={c.key} selected={carrier === c.key} onClick={() => onSelectCarrier(c.key)}>
-              {c.label}
-            </SegmentedControl.Item>
-          ))}
-        </SegmentedControl>
+        {carriers === null ? (
+          <Spinner size="s" />
+        ) : (
+          <SegmentedControl>
+            {carriers.map((c) => (
+              <SegmentedControl.Item key={c.key} selected={carrier === c.key} onClick={() => onSelectCarrier(c.key)}>
+                {c.label}
+              </SegmentedControl.Item>
+            ))}
+          </SegmentedControl>
+        )}
       </Section>
-      <Section header="Пункт выдачи">
+      <Section header={total > 0 ? `Пункт выдачи (найдено ${total})` : 'Пункт выдачи'}>
         {!cityReady ? (
           <Placeholder description="Сначала выберите город выше" />
-        ) : pvzList === null ? (
-          <Spinner size="m" />
-        ) : pvzList.length === 0 ? (
-          <Cell subtitle="Список пуст, попробуйте другой город или перевозчика">Нет доступных ПВЗ</Cell>
         ) : (
           <>
-            {pvzList.map((pvz) => (
-              <Cell
-                key={pvz.id}
-                subtitle={pvz.workingHours}
-                description={pvz.estimatedDeliveryDays ? `Срок доставки: ${pvz.estimatedDeliveryDays}` : undefined}
-                before={<Radio name="pvz" checked={selectedPvzId === pvz.id} onChange={() => onSelectPvz(pvz)} />}
-                onClick={() => onSelectPvz(pvz)}
-              >
-                {pvz.name ?? pvz.address}
-                {pvz.name ? ` — ${pvz.address}` : ''}
+            <Input
+              placeholder="Поиск по адресу или названию"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {pvzList === null ? (
+              <Spinner size="m" />
+            ) : pvzList.length === 0 ? (
+              <Cell subtitle={query ? 'Попробуйте изменить запрос' : 'Попробуйте другой город или перевозчика'}>
+                Ничего не найдено
               </Cell>
-            ))}
-            {hasMore && (
-              <div style={{ padding: 16 }}>
-                <Button size="l" stretched loading={loadingMore} onClick={loadMore}>
-                  Показать ещё
-                </Button>
-              </div>
+            ) : (
+              <>
+                {pvzList.map((pvz) => (
+                  <Cell
+                    key={pvz.id}
+                    subtitle={pvz.workingHours}
+                    description={pvz.estimatedDeliveryDays ? `Срок доставки: ${pvz.estimatedDeliveryDays}` : undefined}
+                    before={<Radio name="pvz" checked={selectedPvzId === pvz.id} onChange={() => onSelectPvz(pvz)} />}
+                    onClick={() => onSelectPvz(pvz)}
+                  >
+                    {pvz.name ?? pvz.address}
+                    {pvz.name ? ` — ${pvz.address}` : ''}
+                  </Cell>
+                ))}
+                {hasMore && (
+                  <div style={{ padding: 16 }}>
+                    <Button size="l" stretched loading={loadingMore} onClick={loadMore}>
+                      Показать ещё
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

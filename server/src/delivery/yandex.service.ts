@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { paginateAndFilter } from './pvz-search';
 import type { NormalizedPvz, PvzPage } from './types';
 
 // TODO: estimatedDeliveryDays is a stub - replace with a real calculation once Yandex
@@ -21,9 +22,9 @@ const STUB_ESTIMATED_DELIVERY_DAYS = '1-2 дня';
 export class YandexService {
   private readonly logger = new Logger(YandexService.name);
 
-  async getPvz(city: string): Promise<PvzPage> {
+  async getPvz(city: string, page = 1, pageSize = 20, query = ''): Promise<PvzPage> {
     if (process.env.YANDEX_MOCKED !== 'false') {
-      return { items: MOCK_PVZ, hasMore: false };
+      return paginateAndFilter(MOCK_PVZ, page, pageSize, query);
     }
 
     try {
@@ -60,10 +61,10 @@ export class YandexService {
         lon: point.position?.longitude,
       }));
 
-      return { items, hasMore: false };
+      return paginateAndFilter(items, page, pageSize, query);
     } catch (err) {
       this.logger.error(`Failed to fetch Yandex Delivery PVZ list, falling back to empty list: ${(err as Error).message}`);
-      return { items: [], hasMore: false };
+      return { items: [], hasMore: false, total: 0 };
     }
   }
 }

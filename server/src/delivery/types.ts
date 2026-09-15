@@ -14,6 +14,8 @@ export interface PvzPage {
   items: NormalizedPvz[];
   /** True if requesting the next page is likely to return more results. */
   hasMore: boolean;
+  /** Total matches for the current city/query - lets the UI show "found N". */
+  total: number;
 }
 
 export interface NormalizedCity {
