@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { callTelegram } from './telegram-api';
+
 @Injectable()
 export class BotService {
   private readonly logger = new Logger(BotService.name);
@@ -23,30 +25,14 @@ export class BotService {
   }
 
   private async sendStartMessage(chatId: number): Promise<void> {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
     const miniAppUrl = process.env.MINIAPP_URL ?? 'https://exeedbot.ru';
-    if (!token) {
-      this.logger.error('TELEGRAM_BOT_TOKEN is not set - cannot reply to /start');
-      return;
-    }
 
-    try {
-      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: 'Запчасти CHERY, EXEED, OMODA и JAECOO — подбор по артикулу прямо здесь, в Telegram.',
-          reply_markup: {
-            inline_keyboard: [[{ text: 'Открыть каталог', web_app: { url: miniAppUrl } }]],
-          },
-        }),
-      });
-      if (!response.ok) {
-        this.logger.error(`sendMessage failed: ${response.status} ${await response.text()}`);
-      }
-    } catch (err) {
-      this.logger.error(`sendMessage request failed: ${(err as Error).message}`);
-    }
+    await callTelegram('sendMessage', {
+      chat_id: chatId,
+      text: 'Запчасти CHERY, EXEED, OMODA и JAECOO — подбор по артикулу прямо здесь, в Telegram.',
+      reply_markup: {
+        inline_keyboard: [[{ text: 'Открыть каталог', web_app: { url: miniAppUrl } }]],
+      },
+    });
   }
 }

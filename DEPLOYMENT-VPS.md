@@ -3,23 +3,26 @@
 Это конкретная инструкция под ваш сервер (`138.16.224.84`, Ubuntu 24.04, root-доступ). Общая
 хостинг-агностичная версия — в [DEPLOYMENT.md](DEPLOYMENT.md).
 
-**Текущий статус:** шаги 1–6 выполнены на сервере. Архитектура изменена — панель регистратора
-запрещает поддомены, поэтому вместо `api.exeedbot.ru` backend отдаётся с того же домена по пути
-`/api/` (см. §7). **Сейчас сервер `138.16.224.84` не отвечает ни на SSH, ни на HTTP** — прежде чем
-продолжать с §7, проверьте в панели adminvps.ru, что VPS включён, и дождитесь, пока снова станет
-доступен по сети. Каждый шаг ниже написан так, чтобы его можно было безопасно повторить — если
-что-то уже сделано, команда просто не изменит систему (или явно помечено "уже выполнено").
+**Текущий статус (15.09.2026):** шаги 1–9 выполнены, прод работает на `https://exeedbot.ru`
+(сайт, API, БД, TLS, автозапуск после ребута). Не работает только ответ бота на `/start` —
+нужен HTTP(S)-прокси вне РФ, см. §10. Архитектура: поддомены у регистратора запрещены, поэтому
+backend отдаётся с того же домена по пути `/api/` (см. §7).
+
+Каждый шаг ниже написан так, чтобы его можно было безопасно повторить — если что-то уже сделано,
+команда просто не изменит систему.
 
 ---
 
 ## 0. Подключение
 
 ```bash
-ssh root@138.16.224.84
+ssh -i ~/.ssh/exeedbot_vps root@138.16.224.84
 ```
 
-Пароль — тот, что уже есть у вас. Если вводите с нуля — на первом входе `ssh` спросит про
-fingerprint, отвечайте `yes`.
+**Только по ключу** — парольный вход отключён (`PasswordAuthentication no`) после инцидента со
+взломом 06.09.2026, когда аккаунт `deploy` подобрали брутфорсом и поставили майнер. Приватный
+ключ лежит в `~/.ssh/exeedbot_vps`; потеряете его — доступ восстанавливается только через
+VNC/консоль в панели adminvps.ru.
 
 ---
 
@@ -83,15 +86,19 @@ sudo -u postgres psql -c "CREATE DATABASE tg_miniapp_prod OWNER tg_miniapp_app;"
 
 ---
 
-## 4. Сборка кода — делается **локально**, не на VPS
+## 4. Сборка кода — на самом VPS, из git
 
-На 1 vCPU/2 GB сборка (`tsc`) конкурирует за память с Postgres — надёжнее собирать на своей машине
-и заливать готовые артефакты.
+Изначально план был собирать локально и заливать артефакты через rsync, но хостинг блокирует
+входящие соединения с части иностранных IP, поэтому надёжнее оказалось клонировать репозиторий
+прямо на сервер и собирать там. 2 ГБ свопа (см. §1) закрывают вопрос нехватки памяти при `tsc`
+на 1 vCPU / 2 ГБ RAM.
+
+Репозиторий приватный, поэтому на сервере лежит отдельный read-only deploy-key
+(`~/.ssh/github_deploy`, добавлен в Settings → Deploy keys репозитория):
 
 ```bash
-# в корне репозитория
-npm run build                 # → dist/ (frontend)
-cd server && npm run build    # → server/dist/ (backend)
+cd /opt/tg-miniapp/build/repo
+GIT_SSH_COMMAND='ssh -i ~/.ssh/github_deploy -o IdentitiesOnly=yes' git pull origin main
 ```
 
 `vite.config.ts` уже переключён на `base: '/'` (было `/tg-miniapp/` под GitHub Pages), и есть
@@ -155,19 +162,24 @@ env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u dep
 
 ---
 
-## 6. Деплой frontend ⚠️ нужно перезалить
+## 6. Деплой frontend ✅ уже сделано
 
-Фронтенд был собран и залит один раз ещё со старым `VITE_API_BASE_URL` (на несуществующий
-поддомен `api.exeedbot.ru`). Локально уже пересобран правильно (`base: '/'`,
-`VITE_API_BASE_URL=https://exeedbot.ru/api`) — как только сервер снова доступен, перезалить:
+Фронтенд собирается прямо на сервере из склонированного репозитория (`/opt/tg-miniapp/build/repo`)
+и копируется в вебрут:
 
 ```bash
-rsync -az --delete dist/ deploy@138.16.224.84:/var/www/exeedbot-frontend/
+cd /opt/tg-miniapp/build/repo
+npm ci && npm run build
+rm -rf /var/www/exeedbot-frontend/*
+cp -r dist/* /var/www/exeedbot-frontend/
 ```
+
+Проверка, что отдаётся свежая сборка: хэш в `curl -s https://exeedbot.ru/ | grep -o 'assets/index-[^"]*\.js'`
+должен совпадать с хэшем из вывода `npm run build`.
 
 ---
 
-## 7. nginx — единый домен без поддоменов ⚠️ нужно применить
+## 7. nginx — единый домен без поддоменов ✅ уже сделано
 
 Панель регистратора не позволяет создать поддомен `api.exeedbot.ru`, поэтому backend отдаём с
 того же домена по пути `/api/` — благо NestJS и так вешает префикс `/api` на все роуты
@@ -214,7 +226,7 @@ curl -H "Host: exeedbot.ru" http://138.16.224.84/api/health
 
 ---
 
-## 8. DNS ⏳ следующий шаг
+## 8. DNS ✅ уже сделано
 
 Теперь нужна **только одна** A-запись (поддомен `api.` больше не нужен) — в панели adminvps.ru,
 на `138.16.224.84`:
@@ -230,7 +242,7 @@ curl -s "https://dns.google/resolve?name=exeedbot.ru&type=A"
 
 ---
 
-## 9. TLS-сертификат (после того как DNS разрешился)
+## 9. TLS-сертификат ✅ уже сделано
 
 ```bash
 certbot --nginx -d exeedbot.ru
@@ -247,21 +259,43 @@ curl https://exeedbot.ru/api/health
 
 ---
 
-## 10. Бот: Menu Button + webhook для `/start` + смоук-тест
+## 10. Бот: Menu Button ✅ + `/start` ⚠️ нужен прокси + смоук-тест
 
 1. Menu Button ✅ уже сделано — выставлен напрямую через Bot API (`setChatMenuButton`), указывает
    на `https://exeedbot.ru`, без захода в BotFather.
-2. Webhook для `/start` (обработчик уже в коде, `server/src/bot`) — одноразовая регистрация после
-   деплоя backend с новым кодом:
+2. **`/start` через long polling + прокси.** Webhook на этом хостинге не работает по двум
+   независимым причинам (проверено 15.09.2026):
+   - с сервера недоступен `api.telegram.org` — таймаут и по IPv4 (`149.154.166.110`), и по
+     IPv6, при том что `api.cdek.ru` отдаёт 200, а `google.com` — 301. Адресная блокировка
+     Telegram у провайдера;
+   - Telegram не может зарезолвить `exeedbot.ru` — `setWebhook` падает с
+     `Failed to resolve host`, хотя на контрольном домене та же команда проходит, а Google DNS
+     / Cloudflare / локальный резолвер отдают корректный `138.16.224.84`.
+
+   Поэтому бот работает в режиме **getUpdates (long polling)** — нужен только исходящий доступ,
+   входящие соединения и резолвинг домена не требуются. Исходящий доступ к Telegram даёт
+   HTTP(S)-прокси вне РФ:
 
    ```bash
-   curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
-     -d "url=https://exeedbot.ru/api/bot/webhook" \
-     -d "secret_token=<значение TELEGRAM_WEBHOOK_SECRET из server/.env>"
+   # в /opt/tg-miniapp/server/.env
+   TELEGRAM_PROXY_URL=http://user:pass@proxy-host:port
+   TELEGRAM_BOT_POLLING=true
    ```
 
-   Проверка: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"` — `url` должен быть
-   `https://exeedbot.ru/api/bot/webhook`, `last_error_message` — пусто.
+   ```bash
+   su - deploy -c 'pm2 restart tg-miniapp-backend --update-env'
+   su - deploy -c 'pm2 logs tg-miniapp-backend --lines 20 --nostream' | grep -E 'Bot polling|proxy|getUpdates'
+   ```
+
+   Признак, что всё поднялось: в логах `Bot polling enabled` + `Telegram API calls go through
+   proxy <host>` и **отсутствие** повторяющихся `getUpdates request failed`. Без прокси
+   `TELEGRAM_BOT_POLLING` надо держать в `false` — иначе бэкенд будет ретраить в пустоту раз в
+   5 секунд.
+
+   Webhook-эндпоинт (`POST /api/bot/webhook`, защищён `TELEGRAM_WEBHOOK_SECRET`) остаётся в коде
+   на случай переезда на хостинг, откуда Telegram видит домен — тогда достаточно
+   `setWebhook` и `TELEGRAM_BOT_POLLING=false`.
+
 3. Пройти чек-лист из [DEPLOYMENT.md §6](DEPLOYMENT.md#6-смоук-тест-после-деплоя) на реальном
    Telegram-клиенте: `/start` отвечает сообщением с кнопкой → открывает miniapp; новый пользователь
    видит стартовую страницу → делится номером → попадает в каталог; поиск товара, корзина (клэмп
