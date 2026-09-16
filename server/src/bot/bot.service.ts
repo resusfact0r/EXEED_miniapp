@@ -21,6 +21,16 @@ export class BotService {
     // so just match on the command itself.
     if (text === '/start' || text.startsWith('/start ')) {
       await this.sendStartMessage(chatId);
+      return;
+    }
+
+    // Lets an operator find the chat id to put in ORDER_NOTIFY_CHAT_IDS without digging
+    // through logs or the database.
+    if (text === '/id') {
+      await callTelegram('sendMessage', {
+        chat_id: chatId,
+        text: `ID этого чата: ${chatId}\n\nЧтобы сюда приходили новые заказы, добавьте его в ORDER_NOTIFY_CHAT_IDS в server/.env и перезапустите backend.`,
+      });
     }
   }
 

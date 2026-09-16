@@ -14,6 +14,7 @@ import { AvtoligaService, AvtoligaUnavailableError } from '../avtoliga/avtoliga.
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { ExternalNotifyService } from './external-notify.service';
+import { OrderTelegramNotifyService } from './order-telegram-notify.service';
 
 @Injectable()
 export class OrdersService {
@@ -22,6 +23,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly externalNotify: ExternalNotifyService,
+    private readonly telegramNotify: OrderTelegramNotifyService,
     private readonly avtoliga: AvtoligaService,
   ) {}
 
@@ -115,6 +117,12 @@ export class OrdersService {
     }
 
     void this.externalNotify.notify(order);
+    // Load the customer separately: the order row only snapshots delivery details, but the
+    // manager needs a phone number to actually follow up on the payment.
+    void this.prisma.user
+      .findUnique({ where: { id: userId } })
+      .then((user) => this.telegramNotify.notify({ ...order, user }))
+      .catch((err) => this.logger.warn(`Failed to push order #${order.orderNumber} to Telegram: ${(err as Error).message}`));
 
     return order;
   }
