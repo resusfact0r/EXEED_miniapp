@@ -15,7 +15,8 @@ export const getCdekPvz = (cityCode: number, page = 1, query = '', pageSize = PV
     `/delivery/cdek/pvz?cityCode=${cityCode}&page=${page}&pageSize=${pageSize}&query=${encodeURIComponent(query)}`,
   );
 
-export const getYandexPvz = (city = '', page = 1, query = '', pageSize = PVZ_PAGE_SIZE) =>
+export const getYandexPvz = (city = '', page = 1, query = '', region = '', pageSize = PVZ_PAGE_SIZE) =>
   apiClient.get<PvzPage>(
-    `/delivery/yandex/pvz?city=${encodeURIComponent(city)}&page=${page}&pageSize=${pageSize}&query=${encodeURIComponent(query)}`,
+    `/delivery/yandex/pvz?city=${encodeURIComponent(city)}&page=${page}&pageSize=${pageSize}` +
+      `&query=${encodeURIComponent(query)}&region=${encodeURIComponent(region)}`,
   );

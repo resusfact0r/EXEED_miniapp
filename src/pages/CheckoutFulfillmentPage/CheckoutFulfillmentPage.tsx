@@ -101,17 +101,24 @@ export const CheckoutFulfillmentPage: FC = () => {
               )}
 
               {!state.cityCode && !state.cityName && (
-                <CityPicker onSelect={(city) => setState({ cityCode: city.code, cityName: city.name })} />
+                <CityPicker onSelect={(city) => setState({ cityCode: city.code, cityName: city.name, cityRegion: city.region ?? null })} />
               )}
               {(state.cityCode !== null || state.cityName !== null) && (
                 <Section>
                   <Cell
                     subtitle="Нажмите, чтобы выбрать другой город"
                     onClick={() =>
-                      setState({ cityCode: null, cityName: null, deliveryPvzId: null, deliveryPvzAddress: null })
+                      setState({
+                        cityCode: null,
+                        cityName: null,
+                        cityRegion: null,
+                        deliveryPvzId: null,
+                        deliveryPvzAddress: null,
+                      })
                     }
                   >
                     Город: {state.cityName}
+                    {state.cityRegion ? `, ${state.cityRegion}` : ''}
                   </Cell>
                 </Section>
               )}
@@ -121,6 +128,7 @@ export const CheckoutFulfillmentPage: FC = () => {
                 selectedPvzId={state.deliveryPvzId}
                 cityCode={state.cityCode}
                 cityName={state.cityName}
+                cityRegion={state.cityRegion}
                 onSelectCarrier={(carrier) =>
                   setState({ deliveryCarrier: carrier, deliveryPvzId: null, deliveryPvzAddress: null })
                 }

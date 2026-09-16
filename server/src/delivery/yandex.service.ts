@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { normalizeLocality, regionsMatch } from './locality';
 import { paginateAndFilter } from './pvz-search';
 import type { NormalizedPvz, PvzPage } from './types';
 
@@ -19,7 +20,7 @@ interface YandexPoint {
   name?: string;
   type?: string;
   position?: { latitude?: number; longitude?: number };
-  address?: { locality?: string; full_address?: string };
+  address?: { locality?: string; region?: string; full_address?: string };
   schedule?: {
     restrictions?: Array<{
       days?: number[];
@@ -73,7 +74,7 @@ export class YandexService {
   private readonly logger = new Logger(YandexService.name);
   private cache: { items: NormalizedPvz[]; expiresAt: number } | null = null;
 
-  async getPvz(city: string, page = 1, pageSize = 20, query = ''): Promise<PvzPage> {
+  async getPvz(city: string, page = 1, pageSize = 20, query = '', region = ''): Promise<PvzPage> {
     if (process.env.YANDEX_MOCKED !== 'false') {
       return paginateAndFilter(MOCK_PVZ, page, pageSize, query);
     }
@@ -81,9 +82,13 @@ export class YandexService {
     const all = await this.getAllPoints();
     // Yandex's API ignores text filters (locality/city are silently dropped - verified) and only
     // honours a numeric Yandex geo_id, which we don't have: the city picker is backed by CDEK's
-    // own city codes. So we match on the locality string instead.
-    const cityLower = city.trim().toLowerCase();
-    const inCity = cityLower ? all.filter((p) => p.cityLower === cityLower) : all;
+    // own city codes. So we match locality names ourselves, normalizing away the settlement-type
+    // prefix Yandex includes and CDEK doesn't. The region check disambiguates namesakes - there
+    // are three Малаховка and five Мытищи in CDEK's list alone.
+    const cityKey = normalizeLocality(city);
+    const inCity = cityKey
+      ? all.filter((p) => p.cityKey === cityKey && regionsMatch(p.region, region))
+      : all;
     return paginateAndFilter(inCity, page, pageSize, query);
   }
 
@@ -92,9 +97,9 @@ export class YandexService {
    * one ~25MB response (13k points). Fetch it rarely, keep only the normalized fields (~2MB),
    * and filter per request from memory.
    */
-  private async getAllPoints(): Promise<Array<NormalizedPvz & { cityLower: string }>> {
+  private async getAllPoints(): Promise<Array<NormalizedPvz & { cityKey: string; region: string }>> {
     if (this.cache && this.cache.expiresAt > Date.now()) {
-      return this.cache.items as Array<NormalizedPvz & { cityLower: string }>;
+      return this.cache.items as Array<NormalizedPvz & { cityKey: string; region: string }>;
     }
 
     try {
@@ -124,7 +129,8 @@ export class YandexService {
           estimatedDeliveryDays: STUB_ESTIMATED_DELIVERY_DAYS,
           lat: point.position?.latitude,
           lon: point.position?.longitude,
-          cityLower: (point.address?.locality ?? '').toLowerCase(),
+          cityKey: normalizeLocality(point.address?.locality ?? ''),
+          region: point.address?.region ?? '',
         }));
 
       this.cache = { items, expiresAt: Date.now() + CACHE_TTL_MS };
@@ -133,7 +139,7 @@ export class YandexService {
     } catch (err) {
       this.logger.error(`Failed to fetch Yandex pickup points: ${(err as Error).message}`);
       // Serve a stale cache rather than nothing if we have one.
-      return (this.cache?.items ?? []) as Array<NormalizedPvz & { cityLower: string }>;
+      return (this.cache?.items ?? []) as Array<NormalizedPvz & { cityKey: string; region: string }>;
     }
   }
 }

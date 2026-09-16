@@ -75,7 +75,8 @@ export class DeliveryController {
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
     @Query('query') query = '',
+    @Query('region') region = '',
   ) {
-    return this.yandexService.getPvz(city, Number(page), Number(pageSize), query);
+    return this.yandexService.getPvz(city, Number(page), Number(pageSize), query, region);
   }
 }

@@ -9,6 +9,7 @@ interface PvzPickerProps {
   selectedPvzId: string | null;
   cityCode: number | null;
   cityName: string | null;
+  cityRegion: string | null;
   onSelectCarrier: (carrier: DeliveryCarrier) => void;
   onSelectPvz: (pvz: Pvz) => void;
 }
@@ -18,6 +19,7 @@ export const PvzPicker: FC<PvzPickerProps> = ({
   selectedPvzId,
   cityCode,
   cityName,
+  cityRegion,
   onSelectCarrier,
   onSelectPvz,
 }) => {
@@ -45,11 +47,14 @@ export const PvzPicker: FC<PvzPickerProps> = ({
   }, []);
 
   const carrier = selectedCarrier ?? carriers?.[0]?.key ?? null;
-  // CDEK's API is keyed by numeric city code; Yandex's (still mocked) takes a free-text name.
+  // CDEK's API is keyed by numeric city code; Yandex has no usable city filter, so it matches
+  // on the city name (plus region, to separate namesakes) server-side.
   const cityReady = carrier === 'CDEK' ? cityCode !== null : Boolean(cityName);
 
   const fetchPage = (targetPage: number, search: string) =>
-    carrier === 'CDEK' ? getCdekPvz(cityCode!, targetPage, search) : getYandexPvz(cityName ?? '', targetPage, search);
+    carrier === 'CDEK'
+      ? getCdekPvz(cityCode!, targetPage, search)
+      : getYandexPvz(cityName ?? '', targetPage, search, cityRegion ?? '');
 
   // Refetch on carrier/city change and on every (debounced) keystroke, always from page 1.
   useEffect(() => {
@@ -68,7 +73,7 @@ export const PvzPicker: FC<PvzPickerProps> = ({
     }, 300);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carrier, cityCode, cityName, cityReady, query]);
+  }, [carrier, cityCode, cityName, cityRegion, cityReady, query]);
 
   const loadMore = () => {
     if (!carrier) return;
