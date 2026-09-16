@@ -1,6 +1,7 @@
 import { Cell, List, Placeholder, Section, Spinner } from '@telegram-apps/telegram-ui';
 import { useEffect, useState, type FC } from 'react';
 import { useParams } from 'react-router-dom';
+import { openLink } from '@telegram-apps/sdk-react';
 
 import { getOrder } from '@/api/orders.ts';
 import type { Order } from '@/api/types.ts';
@@ -59,7 +60,14 @@ export const OrderDetailPage: FC = () => {
           )}
           <Cell subtitle={PAYMENT_LABELS[order.paymentMethod]}>Способ оплаты</Cell>
           {order.paymentLink && (
-            <Cell subtitle={order.paymentLink}>Ссылка на оплату</Cell>
+            // Rendered as a real link: inside Telegram's WebView plain text can't be tapped,
+            // leaving the customer to select and copy a long URL by hand.
+            <Cell
+              subtitle="Нажмите, чтобы перейти к оплате"
+              onClick={() => openLink(order.paymentLink!)}
+            >
+              Ссылка на оплату
+            </Cell>
           )}
         </Section>
         <Section header="Состав заказа" footer={`Итого: ${order.totalAmount} ₽`}>

@@ -83,7 +83,10 @@ export class OrderTelegramNotifyService {
     }
 
     lines.push('');
-    lines.push(`Нужно выставить ссылку на оплату. ID: ${order.id}`);
+    // Spelled out because "ID" next to "payment link" reads as if it were the link's id:
+    // it's the order's own id, needed for PATCH /api/admin/orders/<id>.
+    lines.push('Ожидает выставления ссылки на оплату.');
+    lines.push(`ID заказа: ${order.id}`);
     return lines.join('\n');
   }
 }
