@@ -7,6 +7,7 @@ import { getOrder } from '@/api/orders.ts';
 import type { Order } from '@/api/types.ts';
 import { Page } from '@/components/Page.tsx';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge/OrderStatusBadge.tsx';
+import { formatPrice } from '@/helpers/formatPrice.ts';
 
 const FULFILLMENT_LABELS: Record<Order['fulfillmentType'], string> = {
   PICKUP: 'Самовывоз',
@@ -70,9 +71,9 @@ export const OrderDetailPage: FC = () => {
             </Cell>
           )}
         </Section>
-        <Section header="Состав заказа" footer={`Итого: ${order.totalAmount} ₽`}>
+        <Section header="Состав заказа" footer={`Итого: ${formatPrice(order.totalAmount)}`}>
           {order.items.map((item) => (
-            <Cell key={item.id} subtitle={`${item.unitPrice} ₽ × ${item.quantity}`}>
+            <Cell key={item.id} subtitle={`${formatPrice(item.unitPrice)} × ${item.quantity}`}>
               {item.productName} ({item.productCode})
             </Cell>
           ))}

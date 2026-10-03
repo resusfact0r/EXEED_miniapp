@@ -20,7 +20,15 @@ interface YandexPoint {
   name?: string;
   type?: string;
   position?: { latitude?: number; longitude?: number };
-  address?: { locality?: string; region?: string; full_address?: string };
+  address?: {
+    locality?: string;
+    region?: string;
+    full_address?: string;
+    street?: string;
+    house?: string;
+    housing?: string;
+    building?: string;
+  };
   schedule?: {
     restrictions?: Array<{
       days?: number[];
@@ -28,6 +36,36 @@ interface YandexPoint {
       time_to?: { hours?: number; minutes?: number };
     }>;
   };
+}
+
+/**
+ * "Ленинградское шоссе 128" instead of "Москва Ленинградское шоссе 128" - but only when what
+ * precedes the street is the point's own city. Yandex files outlying places under the big city
+ * (289 points: "район Коммунарка ..." under Москва, "посёлок Шушары ..." / "Колпино ..." under
+ * Санкт-Петербург), and dropping that part would present a point tens of km out as if it were in
+ * town, so it stays: "посёлок Шушары, Школьная улица 6 к2".
+ *
+ * About 2% of points have no street at all ("Троицк  15") - stripping the leading part there
+ * would leave a bare house number, so they keep the full address.
+ */
+function shortAddress(address: YandexPoint['address']): string {
+  const clean = (v?: string) => (v ?? '').replace(/\s+/g, ' ').trim();
+  const full = clean(address?.full_address);
+  const street = clean(address?.street);
+  if (!street) {
+    return full;
+  }
+
+  const housing = clean(address?.housing);
+  const building = clean(address?.building);
+  const streetAndHouse = [street, clean(address?.house), housing && `к${housing}`, building && `стр${building}`]
+    .filter(Boolean)
+    .join(' ');
+
+  const at = full.indexOf(street);
+  const settlement = at > 0 ? full.slice(0, at).trim() : '';
+  const isOwnCity = normalizeLocality(settlement) === normalizeLocality(address?.locality ?? '');
+  return settlement && !isOwnCity ? `${settlement}, ${streetAndHouse}` : streetAndHouse;
 }
 
 function pad(n = 0): string {
@@ -124,6 +162,7 @@ export class YandexService {
           carrier: 'YANDEX' as const,
           id: point.id,
           address: point.address?.full_address ?? '',
+          shortAddress: shortAddress(point.address),
           name: point.name,
           workingHours: formatSchedule(point.schedule),
           estimatedDeliveryDays: STUB_ESTIMATED_DELIVERY_DAYS,

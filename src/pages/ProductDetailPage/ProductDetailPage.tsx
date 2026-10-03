@@ -7,6 +7,7 @@ import type { Product } from '@/api/types.ts';
 import { useCart } from '@/contexts/CartContext.tsx';
 import { Page } from '@/components/Page.tsx';
 import { QuantityStepper } from '@/components/QuantityStepper/QuantityStepper.tsx';
+import { formatPrice } from '@/helpers/formatPrice.ts';
 
 export const ProductDetailPage: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +64,7 @@ export const ProductDetailPage: FC = () => {
           {cartLine && (
             <div style={{ color: 'var(--tgui--hint_color)' }}>В корзине: {cartLine.quantity} шт.</div>
           )}
-          <div style={{ fontSize: 20, fontWeight: 600 }}>{product.price} ₽</div>
+          <div style={{ fontSize: 20, fontWeight: 600 }}>{formatPrice(product.price)}</div>
           <div>{outOfStock ? 'Нет в наличии' : `В наличии: ${product.stockQty} шт.`}</div>
           {product.description && <div>{product.description}</div>}
           {!outOfStock && (

@@ -1,7 +1,11 @@
 export interface NormalizedPvz {
   carrier: 'CDEK' | 'YANDEX';
   id: string;
+  /** Full address incl. postcode/region/city - what gets stored on the order for the operator. */
   address: string;
+  /** Street and house only - for the picker list, where the city is already known and every
+   *  row repeating "109544, Россия, Москва, Москва, ..." is just noise. */
+  shortAddress?: string;
   name?: string;
   workingHours?: string;
   /** Approximate time to deliver an order to this pickup point, e.g. "1-3 дня". */

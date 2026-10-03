@@ -62,6 +62,8 @@ export interface Pvz {
   carrier: 'CDEK' | 'YANDEX';
   id: string;
   address: string;
+  /** Street and house only - the city is already chosen above the list. */
+  shortAddress?: string;
   name?: string;
   workingHours?: string;
   estimatedDeliveryDays?: string;

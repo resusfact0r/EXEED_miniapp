@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import type { CartLine } from '@/api/types.ts';
 import { QuantityStepper } from '@/components/QuantityStepper/QuantityStepper.tsx';
+import { formatPrice } from '@/helpers/formatPrice.ts';
 
 interface CartLineItemProps {
   line: CartLine;
@@ -21,11 +22,11 @@ export const CartLineItem: FC<CartLineItemProps> = ({ line, onChangeQuantity, on
   return (
     <Cell
       onClick={() => navigate(`/product/${line.productId}`)}
-      subtitle={`${line.product.price} ₽ × ${line.quantity} = ${line.lineTotal} ₽`}
+      subtitle={`${formatPrice(line.product.price)} × ${line.quantity} = ${formatPrice(line.lineTotal)}`}
       description={
         line.priceChanged ? (
           <span style={{ color: 'var(--tgui--destructive_text_color)' }}>
-            Цена изменилась: было {line.priceAtAdd} ₽, стало {line.product.price} ₽
+            Цена изменилась: было {formatPrice(line.priceAtAdd)}, стало {formatPrice(line.product.price)}
           </span>
         ) : undefined
       }

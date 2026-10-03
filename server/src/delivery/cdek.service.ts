@@ -32,6 +32,7 @@ interface CdekDeliveryPoint {
   name?: string;
   work_time?: string;
   location: {
+    address?: string;
     address_full?: string;
     latitude?: number;
     longitude?: number;
@@ -122,6 +123,7 @@ export class CdekService {
         carrier: 'CDEK' as const,
         id: point.code,
         address: point.location.address_full ?? '',
+        shortAddress: point.location.address || point.location.address_full,
         name: point.name,
         workingHours: point.work_time,
         estimatedDeliveryDays: STUB_ESTIMATED_DELIVERY_DAYS,

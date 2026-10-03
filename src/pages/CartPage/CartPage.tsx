@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext.tsx';
 import { Page } from '@/components/Page.tsx';
 import { CartLineItem } from '@/components/CartLineItem/CartLineItem.tsx';
+import { formatPrice } from '@/helpers/formatPrice.ts';
 
 export const CartPage: FC = () => {
   const { cart, loading, error, refresh, updateItem, removeItem } = useCart();
@@ -62,7 +63,7 @@ export const CartPage: FC = () => {
             />
           ))}
         </Section>
-        <Section footer={`Итого: ${cart.subtotal} ₽`}>
+        <Section footer={`Итого: ${formatPrice(cart.subtotal)}`}>
           <div style={{ padding: 16 }}>
             <Button size="l" stretched onClick={() => navigate('/checkout/fulfillment')}>
               Оформить заказ

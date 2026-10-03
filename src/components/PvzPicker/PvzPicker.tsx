@@ -136,8 +136,10 @@ export const PvzPicker: FC<PvzPickerProps> = ({
                     before={<Radio name="pvz" checked={selectedPvzId === pvz.id} onChange={() => onSelectPvz(pvz)} />}
                     onClick={() => onSelectPvz(pvz)}
                   >
-                    {pvz.name ?? pvz.address}
-                    {pvz.name ? ` — ${pvz.address}` : ''}
+                    {/* The point's name is left out on purpose: CDEK's repeats the address
+                        ("MSK2, Москва, ул. Международная"), and Yandex's is the same for every
+                        one of its 13k points ("Пункт выдачи заказов Яндекс Маркета"). */}
+                    {pvz.shortAddress || pvz.address}
                   </Cell>
                 ))}
                 {hasMore && (
