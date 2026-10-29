@@ -362,12 +362,17 @@ systemctl daemon-reload && systemctl enable --now tg-miniapp-backup.timer
 
 ```bash
 su - deploy -c 'pm2 stop tg-miniapp-backend'
-sudo -u postgres pg_restore --clean --if-exists -d tg_miniapp_prod /путь/к/tg-miniapp_<дата>.dump
+# файл передаётся через stdin: дамп принадлежит root с правами 600, и сам postgres его не прочитает
+sudo -u postgres pg_restore --clean --if-exists --no-owner -d tg_miniapp_prod < /путь/к/tg-miniapp_<дата>.dump
 su - deploy -c 'pm2 start tg-miniapp-backend'
 ```
 
 На новом сервере: сначала шаги 1–3 (пакеты, роль и база), затем `pg_restore` в пустую базу
-вместо импорта каталога.
+вместо импорта каталога. Проверено 29.10.2026: восстановление в пробную базу дало совпадение с
+боевой по числу товаров, заказов, пользователей, миграций и trgm-индексов.
+
+**Отправка в Telegram идёт через тот же прокси, что и бот** (`TELEGRAM_PROXY_URL`). Если прокси
+не работает, копия остаётся только локально, а юнит падает: `systemctl status tg-miniapp-backup`.
 
 ---
 
