@@ -8,6 +8,7 @@ import { useCart } from '@/contexts/CartContext.tsx';
 import { Page } from '@/components/Page.tsx';
 import { QuantityStepper } from '@/components/QuantityStepper/QuantityStepper.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
+import { maxLineQty } from '@/helpers/lineQuantity.ts';
 
 export const ProductDetailPage: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +24,10 @@ export const ProductDetailPage: FC = () => {
   useEffect(() => {
     if (!id) return;
     getProduct(id)
-      .then(setProduct)
+      .then((loaded) => {
+        setProduct(loaded);
+        setQuantity(Math.max(1, loaded.packQty));
+      })
       .catch((err) => setLoadError((err as Error).message));
   }, [id]);
 
@@ -43,14 +47,17 @@ export const ProductDetailPage: FC = () => {
     );
   }
 
-  const outOfStock = product.stockQty <= 0;
+  const maxQty = maxLineQty(product.packQty, product.stockQty);
+  const outOfStock = maxQty === 0;
   const cartLine = cart?.items.find((item) => item.productId === product.id);
 
   const handleAdd = async () => {
     setAdding(true);
     try {
       const { capped } = await addItem(product.id, quantity);
-      setSnackbar(capped ? 'Добавлено с учётом лимита 10 шт. на позицию' : 'Добавлено в корзину');
+      setSnackbar(capped ? `Добавлено с учётом ограничения: не больше ${maxQty} шт. на позицию` : 'Добавлено в корзину');
+    } catch (err) {
+      setSnackbar((err as Error).message);
     } finally {
       setAdding(false);
     }
@@ -66,10 +73,15 @@ export const ProductDetailPage: FC = () => {
           )}
           <div style={{ fontSize: 20, fontWeight: 600 }}>{formatPrice(product.price)}</div>
           <div>{outOfStock ? 'Нет в наличии' : `В наличии: ${product.stockQty} шт.`}</div>
+          {product.packQty > 1 && (
+            <div style={{ color: 'var(--tgui--hint_color)' }}>
+              Продаётся упаковками по {product.packQty} шт., цена указана за 1 шт.
+            </div>
+          )}
           {product.description && <div>{product.description}</div>}
           {!outOfStock && (
             <>
-              <QuantityStepper value={quantity} max={Math.min(10, product.stockQty)} onChange={setQuantity} />
+              <QuantityStepper value={quantity} step={Math.max(1, product.packQty)} max={maxQty} onChange={setQuantity} />
               <Button size="l" loading={adding} onClick={() => void handleAdd()}>
                 Добавить в корзину
               </Button>

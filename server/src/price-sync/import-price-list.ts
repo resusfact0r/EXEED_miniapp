@@ -91,16 +91,18 @@ async function apply(prisma: PrismaClient, rows: PriceRow[]) {
   const prices = rows.map((r) => applyMarkup(r.price));
   // -1 stands for "stock unknown" (the file said "есть" rather than a number): keep what we had.
   const stocks = rows.map((r) => r.stock ?? -1);
+  // Same convention for the minimum lot: 0 = the file doesn't say.
+  const packs = rows.map((r) => r.pack ?? 0);
 
   // Bulk SQL instead of ~22k upserts: the whole file applies in a couple of seconds, and a
   // half-applied price list is impossible.
   return prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`
-        CREATE TEMP TABLE price_in (code text PRIMARY KEY, name text, price numeric(10,2), stock int) ON COMMIT DROP`;
+        CREATE TEMP TABLE price_in (code text PRIMARY KEY, name text, price numeric(10,2), stock int, pack int) ON COMMIT DROP`;
       await tx.$executeRaw`
-        INSERT INTO price_in (code, name, price, stock)
-        SELECT * FROM unnest(${codes}::text[], ${names}::text[], ${prices}::numeric[], ${stocks}::int[])`;
+        INSERT INTO price_in (code, name, price, stock, pack)
+        SELECT * FROM unnest(${codes}::text[], ${names}::text[], ${prices}::numeric[], ${stocks}::int[], ${packs}::int[])`;
 
       const [{ restored }] = await tx.$queryRaw<[{ restored: number }]>`
         SELECT count(*)::int AS restored FROM "Product" p JOIN price_in i ON i.code = p.code WHERE NOT p."isActive"`;
@@ -112,15 +114,17 @@ async function apply(prisma: PrismaClient, rows: PriceRow[]) {
         UPDATE "Product" p
         SET price = i.price,
             "stockQty" = CASE WHEN i.stock >= 0 THEN i.stock ELSE p."stockQty" END,
+            "packQty" = CASE WHEN i.pack > 0 THEN i.pack ELSE p."packQty" END,
             "isActive" = true,
             "updatedAt" = now()
         FROM price_in i
         WHERE p.code = i.code
-          AND (p.price <> i.price OR NOT p."isActive" OR (i.stock >= 0 AND p."stockQty" <> i.stock))`;
+          AND (p.price <> i.price OR NOT p."isActive" OR (i.stock >= 0 AND p."stockQty" <> i.stock)
+               OR (i.pack > 0 AND p."packQty" <> i.pack))`;
 
       const added = await tx.$executeRaw`
-        INSERT INTO "Product" (id, code, name, price, "stockQty", "isActive", "createdAt", "updatedAt")
-        SELECT gen_random_uuid()::text, i.code, i.name, i.price, greatest(i.stock, 0), true, now(), now()
+        INSERT INTO "Product" (id, code, name, price, "stockQty", "packQty", "isActive", "createdAt", "updatedAt")
+        SELECT gen_random_uuid()::text, i.code, i.name, i.price, greatest(i.stock, 0), greatest(i.pack, 1), true, now(), now()
         FROM price_in i
         WHERE NOT EXISTS (SELECT 1 FROM "Product" p WHERE p.code = i.code)`;
 

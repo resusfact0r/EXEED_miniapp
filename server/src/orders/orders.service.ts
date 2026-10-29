@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -11,10 +12,17 @@ import { FulfillmentType, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
 import { AvtoligaService, AvtoligaUnavailableError } from '../avtoliga/avtoliga.service';
+import type { LivePrice } from '../avtoliga/types';
+import { normalizeLineQty } from '../cart/line-quantity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { ExternalNotifyService } from './external-notify.service';
 import { OrderTelegramNotifyService } from './order-telegram-notify.service';
+
+type CartItemWithProduct = Prisma.CartItemGetPayload<{ include: { product: true } }>;
+
+const money = (value: Prisma.Decimal.Value) =>
+  new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(value));
 
 @Injectable()
 export class OrdersService {
@@ -36,11 +44,15 @@ export class OrdersService {
       throw new BadRequestException('Cart is empty');
     }
 
-    // Prices shown while browsing can be stale (last catalog sync). We only ever charge what
-    // the supplier confirms live, right now, so we never sell below their current cost.
-    let livePrices;
+    // Prices shown while browsing can be stale (last price list). We only ever charge what
+    // the supplier confirms live, right now, so we never sell below their current cost - and
+    // only if that's what the customer was shown, so they're never charged a sum they never saw.
+    let livePrices: Map<string, LivePrice>;
     try {
-      livePrices = await this.avtoliga.getLivePrices(cartItems.map((item) => item.product.code));
+      livePrices = await this.avtoliga.getLivePrices(
+        cartItems.map((item) => item.product.code),
+        Object.fromEntries(cartItems.map((item) => [item.product.code, item.quantity])),
+      );
     } catch (err) {
       if (err instanceof AvtoligaUnavailableError) {
         this.logger.error(`Avtoliga unavailable while creating order: ${err.message}`);
@@ -51,16 +63,19 @@ export class OrdersService {
       throw err;
     }
 
-    const missing = cartItems.filter((item) => !livePrices.has(item.product.code));
-    if (missing.length > 0) {
-      throw new ServiceUnavailableException(
-        `Не удалось подтвердить актуальную цену у поставщика для: ${missing.map((i) => i.product.code).join(', ')}. Попробуйте убрать эти позиции из корзины или повторить позже.`,
-      );
+    const problems = this.findProblems(cartItems, livePrices, dto);
+    if (problems.length > 0) {
+      await this.syncCartWithSupplier(userId, cartItems, livePrices);
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'CART_CHANGED',
+        message: ['Заказ не оформлен — с момента просмотра корзины изменилось:', ...problems.map((p) => `• ${p}`)].join('\n'),
+      });
     }
 
     const priced = cartItems.map((item) => {
       const live = livePrices.get(item.product.code)!;
-      return { item, unitPrice: new Prisma.Decimal(live.price), stockQty: live.stockQty };
+      return { item, unitPrice: new Prisma.Decimal(live.price), live };
     });
 
     const totalAmount = priced.reduce(
@@ -74,7 +89,18 @@ export class OrdersService {
         : undefined;
 
     const order = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.order.create({
+      // Claim the cart first. A double tap on "Оформить заказ" sends two requests that both read
+      // the same cart during the multi-second supplier check; the second one blocks here until
+      // the first commits, then finds the lines already gone and rolls back instead of creating
+      // a duplicate order.
+      const claimed = await tx.cartItem.deleteMany({
+        where: { userId, id: { in: cartItems.map((item) => item.id) } },
+      });
+      if (claimed.count !== cartItems.length) {
+        throw new ConflictException('Этот заказ уже оформляется — проверьте раздел «Заказы».');
+      }
+
+      return tx.order.create({
         data: {
           userId,
           fulfillmentType: dto.fulfillmentType,
@@ -100,17 +126,16 @@ export class OrdersService {
         },
         include: { items: true },
       });
-
-      await tx.cartItem.deleteMany({ where: { userId } });
-
-      return created;
     });
 
     // Best-effort: let the catalog self-heal towards the price/stock we just confirmed live,
     // so browsing reflects reality more closely until the next full sync. Never blocks the order.
-    for (const { item, unitPrice, stockQty } of priced) {
+    for (const { item, unitPrice, live } of priced) {
       this.prisma.product
-        .update({ where: { id: item.productId }, data: { price: unitPrice, stockQty } })
+        .update({
+          where: { id: item.productId },
+          data: { price: unitPrice, stockQty: live.stockQty, packQty: live.packQty },
+        })
         .catch((err) =>
           this.logger.warn(`Failed to refresh product ${item.product.code} after order: ${(err as Error).message}`),
         );
@@ -125,6 +150,64 @@ export class OrdersService {
       .catch((err) => this.logger.warn(`Failed to push order #${order.orderNumber} to Telegram: ${(err as Error).message}`));
 
     return order;
+  }
+
+  /** Human-readable reasons the cart can't be ordered as shown; empty when it can. */
+  private findProblems(cartItems: CartItemWithProduct[], live: Map<string, LivePrice>, dto: CreateOrderDto): string[] {
+    const problems: string[] = [];
+    const expected = dto.expectedItems ? new Map(dto.expectedItems.map((e) => [e.productId, e])) : undefined;
+
+    if (expected && (expected.size !== cartItems.length || cartItems.some((i) => expected.get(i.productId)?.quantity !== i.quantity))) {
+      problems.push('состав корзины (её меняли в другом окне)');
+    }
+
+    for (const item of cartItems) {
+      const name = `«${item.product.name}»`;
+      const entry = live.get(item.product.code);
+      if (!item.product.isActive || !entry) {
+        problems.push(`${name} — нет в наличии, уберите из корзины`);
+        continue;
+      }
+      if (entry.stockQty < item.quantity) {
+        const available = Math.floor(entry.stockQty / entry.packQty) * entry.packQty;
+        problems.push(
+          available > 0
+            ? `${name} — в наличии только ${available} шт., количество уменьшено`
+            : `${name} — закончился, уберите из корзины`,
+        );
+        continue;
+      }
+      if (item.quantity % entry.packQty !== 0) {
+        problems.push(`${name} — продаётся только по ${entry.packQty} шт., количество исправлено`);
+      }
+      const shown = expected?.get(item.productId)?.unitPrice ?? item.product.price;
+      if (!new Prisma.Decimal(entry.price).equals(shown)) {
+        problems.push(`${name} — цена ${money(shown)} → ${money(entry.price)}`);
+      }
+    }
+    return problems;
+  }
+
+  /**
+   * After a rejected checkout, bring the catalog rows and cart quantities in line with what the
+   * supplier just said, so the refreshed cart shows exactly what the next attempt will charge.
+   * Lines that can't be bought at all stay put - the customer is told to remove them.
+   */
+  private async syncCartWithSupplier(userId: string, cartItems: CartItemWithProduct[], live: Map<string, LivePrice>) {
+    for (const item of cartItems) {
+      const entry = live.get(item.product.code);
+      if (!entry) {
+        continue;
+      }
+      await this.prisma.product.update({
+        where: { id: item.productId },
+        data: { price: new Prisma.Decimal(entry.price), stockQty: entry.stockQty, packQty: entry.packQty },
+      });
+      const quantity = normalizeLineQty(item.quantity, entry.packQty, entry.stockQty);
+      if (quantity > 0 && quantity !== item.quantity) {
+        await this.prisma.cartItem.updateMany({ where: { id: item.id, userId }, data: { quantity } });
+      }
+    }
   }
 
   listForUser(userId: string) {

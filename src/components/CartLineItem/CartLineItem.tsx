@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import type { CartLine } from '@/api/types.ts';
 import { QuantityStepper } from '@/components/QuantityStepper/QuantityStepper.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
+import { maxLineQty } from '@/helpers/lineQuantity.ts';
 
 interface CartLineItemProps {
   line: CartLine;
@@ -24,7 +25,9 @@ export const CartLineItem: FC<CartLineItemProps> = ({ line, onChangeQuantity, on
       onClick={() => navigate(`/product/${line.productId}`)}
       subtitle={`${formatPrice(line.product.price)} × ${line.quantity} = ${formatPrice(line.lineTotal)}`}
       description={
-        line.priceChanged ? (
+        !line.product.isActive ? (
+          <span style={{ color: 'var(--tgui--destructive_text_color)' }}>Нет в наличии — уберите из корзины</span>
+        ) : line.priceChanged ? (
           <span style={{ color: 'var(--tgui--destructive_text_color)' }}>
             Цена изменилась: было {formatPrice(line.priceAtAdd)}, стало {formatPrice(line.product.price)}
           </span>
@@ -34,7 +37,8 @@ export const CartLineItem: FC<CartLineItemProps> = ({ line, onChangeQuantity, on
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={stop}>
           <QuantityStepper
             value={line.quantity}
-            max={Math.min(10, line.product.stockQty || 10)}
+            step={Math.max(1, line.product.packQty)}
+            max={maxLineQty(line.product.packQty, line.product.stockQty)}
             onChange={(next) => onChangeQuantity(line.productId, next)}
           />
           <IconButton mode="plain" onClick={() => onRemove(line.productId)}>

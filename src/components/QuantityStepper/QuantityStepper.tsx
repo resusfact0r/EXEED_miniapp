@@ -1,10 +1,12 @@
 import { Button } from '@telegram-apps/telegram-ui';
 import type { FC } from 'react';
 
-export const MAX_QTY_PER_LINE = 10;
+import { MAX_QTY_PER_LINE } from '@/helpers/lineQuantity.ts';
 
 interface QuantityStepperProps {
   value: number;
+  /** Supplier lot size: each tap adds or removes a whole lot. */
+  step?: number;
   min?: number;
   max?: number;
   onChange: (next: number) => void;
@@ -12,7 +14,8 @@ interface QuantityStepperProps {
 
 export const QuantityStepper: FC<QuantityStepperProps> = ({
   value,
-  min = 1,
+  step = 1,
+  min = step,
   max = MAX_QTY_PER_LINE,
   onChange,
 }) => {
@@ -22,7 +25,7 @@ export const QuantityStepper: FC<QuantityStepperProps> = ({
         mode="outline"
         size="s"
         disabled={value <= min}
-        onClick={() => onChange(Math.max(min, value - 1))}
+        onClick={() => onChange(Math.max(min, value - step))}
       >
         −
       </Button>
@@ -30,8 +33,8 @@ export const QuantityStepper: FC<QuantityStepperProps> = ({
       <Button
         mode="outline"
         size="s"
-        disabled={value >= max}
-        onClick={() => onChange(Math.min(max, value + 1))}
+        disabled={value + step > max}
+        onClick={() => onChange(Math.min(max, value + step))}
       >
         +
       </Button>

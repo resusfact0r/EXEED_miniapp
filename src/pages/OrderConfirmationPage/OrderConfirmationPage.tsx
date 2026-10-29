@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getOrder } from '@/api/orders.ts';
 import type { Order } from '@/api/types.ts';
 import { Page } from '@/components/Page.tsx';
+import { formatPrice } from '@/helpers/formatPrice.ts';
 
 export const OrderConfirmationPage: FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -39,7 +40,7 @@ export const OrderConfirmationPage: FC = () => {
     <Page back={false}>
       <Placeholder
         header={`Заказ №${order.orderNumber} оформлен`}
-        description="Мы получили ваш заказ и скоро свяжемся с вами для уточнения деталей оплаты и доставки. Заказанные запчасти возврату не подлежат."
+        description={`Сумма: ${formatPrice(order.totalAmount)}. Мы получили ваш заказ и скоро свяжемся с вами для уточнения деталей оплаты и доставки. Заказанные запчасти возврату не подлежат.`}
         action={
           <Button size="l" onClick={() => navigate('/catalog')}>
             Вернуться в каталог

@@ -23,6 +23,8 @@ export interface Product {
   name: string;
   price: string;
   stockQty: number;
+  /** Supplier lot size: only whole multiples can be ordered (price is per piece). */
+  packQty: number;
   description: string | null;
   imageUrl: string | null;
   isActive: boolean;
@@ -38,7 +40,7 @@ export interface SearchProductsResult {
 export interface CartLine {
   productId: string;
   quantity: number;
-  product: Pick<Product, 'id' | 'code' | 'name' | 'price' | 'stockQty'>;
+  product: Pick<Product, 'id' | 'code' | 'name' | 'price' | 'stockQty' | 'packQty' | 'isActive'>;
   lineTotal: string;
   /** Catalog price at the moment this item was first added to the cart. */
   priceAtAdd: string;
@@ -109,6 +111,8 @@ export interface CreateOrderPayload {
   paymentMethod: PaymentMethod;
   orgCardDetails?: string;
   policyAcknowledged: boolean;
+  /** The lines exactly as shown on the checkout screen - the order is refused if the live check differs. */
+  expectedItems?: { productId: string; quantity: number; unitPrice: string }[];
 }
 
 export interface OrderItemDto {

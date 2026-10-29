@@ -1,10 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, type Product } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { AvtoligaService } from '../avtoliga/avtoliga.service';
-
-export const MAX_QTY_PER_LINE = 10;
+import { normalizeLineQty } from './line-quantity';
 
 @Injectable()
 export class CartService {
@@ -16,27 +15,25 @@ export class CartService {
   ) {}
 
   /**
-   * Looks up the live supplier price for this product and, if reachable, self-heals the
-   * cached catalog price/stock to match. Never blocks adding to cart: if Avtoliga can't be
-   * reached right now, falls back to whatever price is currently cached - the hard guarantee
-   * against selling below cost lives in OrdersService at order-creation time, not here.
+   * Looks up the live supplier price, stock and lot size for this product and, if reachable,
+   * self-heals the cached catalog row to match. Never blocks adding to cart: if Avtoliga can't be
+   * reached right now, falls back to what's cached - the hard guarantee against selling below
+   * cost or beyond stock lives in OrdersService at order-creation time, not here.
    */
-  private async getEffectivePrice(product: Product): Promise<Prisma.Decimal> {
+  private async refreshFromSupplier(product: Product, quantity: number): Promise<Product> {
     try {
-      const live = await this.avtoliga.getLivePrices([product.code]);
+      const live = await this.avtoliga.getLivePrices([product.code], { [product.code]: quantity });
       const entry = live.get(product.code);
       if (!entry) {
-        return product.price;
+        return product;
       }
-      const price = new Prisma.Decimal(entry.price);
-      await this.prisma.product.update({
+      return await this.prisma.product.update({
         where: { id: product.id },
-        data: { price, stockQty: entry.stockQty },
+        data: { price: new Prisma.Decimal(entry.price), stockQty: entry.stockQty, packQty: entry.packQty },
       });
-      return price;
     } catch (err) {
       this.logger.warn(`Live price lookup failed for ${product.code}, using cached price: ${(err as Error).message}`);
-      return product.price;
+      return product;
     }
   }
 
@@ -60,19 +57,22 @@ export class CartService {
     });
 
     const rawQuantity = (existing?.quantity ?? 0) + quantity;
-    const clampedQuantity = Math.min(rawQuantity, MAX_QTY_PER_LINE);
-    const capped = rawQuantity > MAX_QTY_PER_LINE;
 
-    // Refresh from the supplier right now, so the price the user sees the moment they add to
-    // cart is as current as possible (not last night's catalog sync).
-    const effectivePrice = await this.getEffectivePrice(product);
+    // Refresh from the supplier right now, so the price, stock and lot size the line is built on
+    // are as current as possible (not the last emailed price list).
+    const fresh = await this.refreshFromSupplier(product, rawQuantity);
+    const clampedQuantity = normalizeLineQty(rawQuantity, fresh.packQty, fresh.stockQty);
+    if (clampedQuantity === 0) {
+      throw new BadRequestException('Этого товара сейчас нет в наличии');
+    }
+    const capped = clampedQuantity < rawQuantity;
 
     await this.prisma.cartItem.upsert({
       where: { userId_productId: { userId, productId } },
       update: { quantity: clampedQuantity },
       // priceAtAdd is only ever set when the line is first created - it's a snapshot of "what
       // the catalog said when the user found this item", not touched by later quantity changes.
-      create: { userId, productId, quantity: clampedQuantity, priceAtAdd: effectivePrice },
+      create: { userId, productId, quantity: clampedQuantity, priceAtAdd: fresh.price },
     });
 
     const cart = await this.getCart(userId);
@@ -85,15 +85,21 @@ export class CartService {
       return { ...(await this.getCart(userId)), capped: false };
     }
 
-    const clampedQuantity = Math.min(quantity, MAX_QTY_PER_LINE);
-    const capped = quantity > MAX_QTY_PER_LINE;
-
     const existing = await this.prisma.cartItem.findUnique({
       where: { userId_productId: { userId, productId } },
+      include: { product: true },
     });
     if (!existing) {
       throw new NotFoundException('Cart item not found');
     }
+
+    // Cached stock is good enough here: the stepper already offers only valid steps, and the
+    // order itself is checked against the supplier live.
+    const clampedQuantity = normalizeLineQty(quantity, existing.product.packQty, existing.product.stockQty);
+    if (clampedQuantity === 0) {
+      throw new BadRequestException('Этого товара сейчас нет в наличии');
+    }
+    const capped = clampedQuantity < quantity;
 
     await this.prisma.cartItem.update({
       where: { userId_productId: { userId, productId } },
@@ -125,6 +131,8 @@ export class CartService {
         name: item.product.name,
         price: item.product.price,
         stockQty: item.product.stockQty,
+        packQty: item.product.packQty,
+        isActive: item.product.isActive,
       },
       lineTotal: item.product.price.mul(item.quantity),
       priceAtAdd: item.priceAtAdd,

@@ -62,6 +62,9 @@ model Product {
   name        String
   price       Decimal     @db.Decimal(10, 2)
   stockQty    Int         @default(0)
+  /// Supplier's minimum lot ("Минимальная партия" / InPackage): the price is per piece, but only
+  /// whole multiples of this can be bought - so the cart only allows multiples too.
+  packQty     Int         @default(1)
   description String?
   imageUrl    String?
   isActive    Boolean     @default(true)

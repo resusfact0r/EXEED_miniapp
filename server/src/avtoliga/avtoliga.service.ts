@@ -15,23 +15,25 @@ export class AvtoligaService {
    * Looks up live prices/stock for the given product codes directly from the supplier.
    * Only entries whose Vendor matches AVTOLIGA_VENDOR_FILTER are trusted (a raw Articul can
    * collide across unrelated brands in Avtoliga's system). Among matching stores, the cheapest
-   * price is taken and our markup is applied on top of it.
+   * one that has the wanted quantity is taken (`quantities`, default 1 per code) and our markup
+   * is applied on top of it. If no store has enough, the one with the most stock is reported, so
+   * the caller can tell the customer how many there are.
    *
    * Throws AvtoligaUnavailableError if the supplier can't be reached or returns an error -
    * callers should treat this as "cannot verify price right now", not as "product doesn't exist".
    * Codes with no matching live entry are simply absent from the returned map.
    */
-  async getLivePrices(codes: string[]): Promise<Map<string, LivePrice>> {
+  async getLivePrices(codes: string[], quantities: Record<string, number> = {}): Promise<Map<string, LivePrice>> {
     const result = new Map<string, LivePrice>();
     for (let i = 0; i < codes.length; i += BATCH_SIZE) {
       const batch = codes.slice(i, i + BATCH_SIZE);
-      const parts = await this.fetchBatch(batch);
-      this.mergeInto(result, parts);
+      const parts = await this.fetchBatch(batch, quantities);
+      this.mergeInto(result, parts, quantities);
     }
     return result;
   }
 
-  private async fetchBatch(codes: string[]) {
+  private async fetchBatch(codes: string[], quantities: Record<string, number>) {
     const baseUrl = process.env.AVTOLIGA_API_BASE_URL ?? 'https://avtoliga-parts.ru/api/v1';
     const token = process.env.AVTOLIGA_API_TOKEN ?? '';
     const addressId = process.env.AVTOLIGA_ADDRESS_ID ?? '';
@@ -40,7 +42,7 @@ export class AvtoligaService {
       Token: token,
       Data: JSON.stringify({
         AddressId: addressId,
-        SpareParts: codes.map((code) => ({ Articul: code, Count: 1 })),
+        SpareParts: codes.map((code) => ({ Articul: code, Count: quantities[code] ?? 1 })),
       }),
     });
 
@@ -70,7 +72,11 @@ export class AvtoligaService {
     return data.SpareParts ?? [];
   }
 
-  private mergeInto(result: Map<string, LivePrice>, parts: AvtoligaPartsResponse['SpareParts']) {
+  private mergeInto(
+    result: Map<string, LivePrice>,
+    parts: AvtoligaPartsResponse['SpareParts'],
+    quantities: Record<string, number>,
+  ) {
     const vendorFilter = process.env.AVTOLIGA_VENDOR_FILTER ?? 'CHERY';
 
     for (const part of parts ?? []) {
@@ -81,13 +87,29 @@ export class AvtoligaService {
         continue;
       }
 
-      const cheapest = part.Prices.reduce((min, p) => (p.Price < min.Price ? p : min));
-      const existing = result.get(part.Articul);
-      const markedUpPrice = applyMarkup(cheapest.Price);
-
-      if (!existing || markedUpPrice < existing.price) {
-        result.set(part.Articul, { price: markedUpPrice, stockQty: cheapest.Count });
+      const wanted = quantities[part.Articul] ?? 1;
+      for (const store of part.Prices) {
+        const candidate: LivePrice = {
+          price: applyMarkup(store.Price),
+          stockQty: store.Count,
+          packQty: Math.max(1, store.InPackage || 1),
+        };
+        const existing = result.get(part.Articul);
+        if (!existing || this.isBetter(candidate, existing, wanted)) {
+          result.set(part.Articul, candidate);
+        }
       }
     }
+  }
+
+  /** A store that can supply the whole quantity beats one that can't; then cheaper wins; among
+   *  stores that can't, more stock wins (that's the number worth telling the customer). */
+  private isBetter(candidate: LivePrice, existing: LivePrice, wanted: number): boolean {
+    const candidateEnough = candidate.stockQty >= wanted;
+    const existingEnough = existing.stockQty >= wanted;
+    if (candidateEnough !== existingEnough) {
+      return candidateEnough;
+    }
+    return candidateEnough ? candidate.price < existing.price : candidate.stockQty > existing.stockQty;
   }
 }

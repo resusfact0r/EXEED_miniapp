@@ -24,6 +24,8 @@ export interface AvtoligaPartsResponse {
 export interface LivePrice {
   /** Our shop price = Avtoliga's cheapest matching-store price + markup. */
   price: number;
-  /** Stock at the store that offered the cheapest price. */
+  /** Stock at the chosen store (see AvtoligaService.mergeInto). */
   stockQty: number;
+  /** Minimum lot at that store (InPackage): only whole multiples can be ordered. */
+  packQty: number;
 }
