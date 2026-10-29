@@ -12,7 +12,7 @@
 (06.09 — подобран пароль пользователя `deploy`, поставлен майнер), затем переустановлен без
 бэкапа. Прод развёрнут заново на `5.35.126.169` с чистой базой: каталог восстановлен из
 `server/data/chery-catalog.csv`, ключи — из локального `server/.env`; заказы и пользователи
-старого сервера утеряны. **Бэкапов базы пока нет** — это первое, что стоит настроить.
+старого сервера утеряны. Поэтому теперь база каждую ночь уходит копией в Telegram — см. §11.
 
 Каждый шаг ниже написан так, чтобы его можно было безопасно повторить — если что-то уже сделано,
 команда просто не изменит систему.
@@ -335,6 +335,39 @@ curl https://exeedbot.ru/api/health
    политики кликается в любой точке строки, заказ виден в `GET https://exeedbot.ru/api/admin/orders`
    (заголовок `X-Admin-Token`), цена в заказе отличается от каталожной на актуальную наценку Avtoliga,
    настройки в профиле сохраняются и подставляются в следующий чекаут.
+
+---
+
+## 11. Бэкапы базы
+
+Каждую ночь в 00:00 UTC (03:00 МСК) systemd-таймер делает `pg_dump -Fc` базы `tg_miniapp_prod`
+и отправляет файл ботом в чат `BACKUP_CHAT_ID` (владелец) с подписью: размер и сколько в базе
+заказов, пользователей и товаров. Локально хранятся последние 14 копий в
+`/var/backups/tg-miniapp/`. Копия в Telegram — главная: локальная пропадёт вместе с сервером,
+как это уже случилось со старым.
+
+Файлы — в репозитории, `server/deploy/backup/`. Установка:
+
+```bash
+cd /opt/tg-miniapp/build/repo/server/deploy/backup
+install -m 755 tg-miniapp-backup.sh /usr/local/bin/
+install -m 644 tg-miniapp-backup.service tg-miniapp-backup.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now tg-miniapp-backup.timer
+```
+
+Проверка: `systemctl list-timers tg-miniapp-backup.timer` — время следующего запуска;
+`systemctl start tg-miniapp-backup` — внеплановый бэкап; `journalctl -u tg-miniapp-backup` — лог.
+
+**Восстановление** (из скачанного из Telegram или локального файла):
+
+```bash
+su - deploy -c 'pm2 stop tg-miniapp-backend'
+sudo -u postgres pg_restore --clean --if-exists -d tg_miniapp_prod /путь/к/tg-miniapp_<дата>.dump
+su - deploy -c 'pm2 start tg-miniapp-backend'
+```
+
+На новом сервере: сначала шаги 1–3 (пакеты, роль и база), затем `pg_restore` в пустую базу
+вместо импорта каталога.
 
 ---
 

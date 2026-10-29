@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly backup of the exeedbot.ru database
+
+[Timer]
+# 00:00 UTC = 03:00 Moscow time, when nobody is ordering.
+OnCalendar=*-*-* 00:00:00 UTC
+# A run missed while the server was off happens right after it boots.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

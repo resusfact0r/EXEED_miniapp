@@ -1,10 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { ETA_FAILURE_TTL_MS, ETA_TTL_MS, formatDays } from './eta';
 import { paginateAndFilter } from './pvz-search';
 import type { NormalizedCity, NormalizedPvz, PvzPage } from './types';
 
-// TODO: estimatedDeliveryDays is a stub - replace with a real calculation (e.g. CDEK's
-// /v2/calculator/tarifflist) once weight/dimensions per order are available.
 const MOCK_PVZ: NormalizedPvz[] = [
   { carrier: 'CDEK', id: 'MSK123', address: 'г. Москва, ул. Тестовая, д. 1', name: 'CDEK Тестовая', workingHours: '09:00-21:00', estimatedDeliveryDays: '1-3 дня' },
   { carrier: 'CDEK', id: 'MSK456', address: 'г. Москва, ул. Примерная, д. 5', name: 'CDEK Примерная', workingHours: '10:00-20:00', estimatedDeliveryDays: '2-4 дня' },
@@ -16,7 +15,15 @@ const MOCK_CITIES: NormalizedCity[] = [
   { code: 137, name: 'Санкт-Петербург', region: 'Санкт-Петербург' },
 ];
 
-const STUB_ESTIMATED_DELIVERY_DAYS = '1-3 дня';
+// Standard parcel tariffs, warehouse-to-warehouse: the shop drops the parcel at CDEK, the
+// customer collects it at a pickup point. Taking the fastest tariff overall would be wrong - to
+// Новосибирск that's "Супер-экспресс" at 1 day, a premium service the shop doesn't use, against
+// 4-5 days for an ordinary parcel. 136 "Посылка", then 483 "Экспресс", then 62 "Магистральный
+// экспресс" where a route has no 136.
+const ETA_TARIFF_PRIORITY = [136, 483, 62];
+// Product weights aren't known, so the estimate uses a nominal 1 kg parcel - weight barely moves
+// the delivery period, it's the price that depends on it.
+const ETA_PARCEL_WEIGHT_GRAMS = 1000;
 
 // CDEK's largest cities sit under 500 points, so one request covers a whole city.
 const MAX_PVZ_PER_CITY = 1000;
@@ -50,6 +57,7 @@ export class CdekService {
   private readonly logger = new Logger(CdekService.name);
   private tokenCache: CdekTokenCache | null = null;
   private readonly pvzCache = new Map<number, { items: NormalizedPvz[]; expiresAt: number }>();
+  private readonly etaCache = new Map<number, { value?: string; expiresAt: number }>();
 
   async getCities(query: string): Promise<NormalizedCity[]> {
     if (process.env.CDEK_MOCKED !== 'false') {
@@ -82,8 +90,51 @@ export class CdekService {
   }
 
   async getPvz(cityCode: number, page = 1, pageSize = 20, query = ''): Promise<PvzPage> {
-    const all = await this.getAllPvzForCity(cityCode);
-    return paginateAndFilter(all, page, pageSize, query);
+    const [all, eta] = await Promise.all([this.getAllPvzForCity(cityCode), this.getDeliveryEstimate(cityCode)]);
+    const result = paginateAndFilter(all, page, pageSize, query);
+    // The period depends on the route, not the individual point, so one lookup covers the city.
+    return eta ? { ...result, items: result.items.map((p) => ({ ...p, estimatedDeliveryDays: eta })) } : result;
+  }
+
+  /** Real delivery period from CDEK's tariff calculator, e.g. "4–5 дней", or undefined. */
+  private async getDeliveryEstimate(cityCode: number): Promise<string | undefined> {
+    if (process.env.CDEK_MOCKED !== 'false') {
+      return undefined;
+    }
+    const cached = this.etaCache.get(cityCode);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    let value: string | undefined;
+    try {
+      const token = await this.getAccessToken();
+      const baseUrl = process.env.CDEK_API_BASE_URL ?? 'https://api.cdek.ru';
+      const fromCode = Number(process.env.CDEK_FROM_CITY_CODE ?? 44);
+      const response = await fetch(new URL('/v2/calculator/tarifflist', baseUrl), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_location: { code: fromCode },
+          to_location: { code: cityCode },
+          packages: [{ weight: ETA_PARCEL_WEIGHT_GRAMS }],
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`CDEK calculator responded with ${response.status}`);
+      }
+      const data: { tariff_codes?: Array<{ tariff_code: number; period_min: number; period_max: number }> } =
+        await response.json();
+      const tariff = ETA_TARIFF_PRIORITY.map((code) => data.tariff_codes?.find((t) => t.tariff_code === code)).find(
+        Boolean,
+      );
+      value = tariff ? formatDays(tariff.period_min, tariff.period_max) : undefined;
+    } catch (err) {
+      this.logger.warn(`CDEK delivery estimate for city ${cityCode} unavailable: ${(err as Error).message}`);
+    }
+
+    this.etaCache.set(cityCode, { value, expiresAt: Date.now() + (value ? ETA_TTL_MS : ETA_FAILURE_TTL_MS) });
+    return value;
   }
 
   /**
@@ -126,7 +177,6 @@ export class CdekService {
         shortAddress: point.location.address || point.location.address_full,
         name: point.name,
         workingHours: point.work_time,
-        estimatedDeliveryDays: STUB_ESTIMATED_DELIVERY_DAYS,
         lat: point.location.latitude,
         lon: point.location.longitude,
       }));

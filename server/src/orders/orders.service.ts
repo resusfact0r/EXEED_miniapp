@@ -154,6 +154,41 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Operator flow from the bot (/pay): record the payment link and move the order to "awaiting
+   * payment". Refused once the order is already paid, in progress, done or cancelled - a fresh
+   * link there would only confuse the customer.
+   */
+  async issuePaymentLink(orderNumber: number, paymentLink: string) {
+    return this.operatorTransition(orderNumber, ['NEW', 'AWAITING_PAYMENT_LINK', 'AWAITING_PAYMENT'], {
+      paymentLink,
+      status: 'AWAITING_PAYMENT',
+    });
+  }
+
+  /** Operator flow from the bot (/paid): the money has arrived. */
+  async markPaid(orderNumber: number) {
+    return this.operatorTransition(orderNumber, ['NEW', 'AWAITING_PAYMENT_LINK', 'AWAITING_PAYMENT'], {
+      status: 'PAID',
+    });
+  }
+
+  private async operatorTransition(
+    orderNumber: number,
+    allowedFrom: OrderStatus[],
+    data: { status: OrderStatus; paymentLink?: string },
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { orderNumber } });
+    if (!order) {
+      return { ok: false as const, reason: 'not_found' as const };
+    }
+    if (!allowedFrom.includes(order.status)) {
+      return { ok: false as const, reason: 'wrong_status' as const, status: order.status };
+    }
+    const updated = await this.prisma.order.update({ where: { orderNumber }, data, include: { user: true } });
+    return { ok: true as const, order: updated };
+  }
+
   async updateForAdmin(id: string, dto: UpdateOrderStatusDto) {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) {

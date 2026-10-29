@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { ETA_FAILURE_TTL_MS, ETA_TTL_MS, formatDays } from './eta';
 import { normalizeLocality, regionsMatch } from './locality';
 import { paginateAndFilter } from './pvz-search';
 import type { NormalizedPvz, PvzPage } from './types';
@@ -9,8 +10,6 @@ const MOCK_PVZ: NormalizedPvz[] = [
   { carrier: 'YANDEX', id: 'YND002', address: 'г. Москва, ул. Образцовая, д. 8', name: 'Яндекс ПВЗ Образцовая', workingHours: '10:00-21:00', estimatedDeliveryDays: '2-3 дня' },
 ];
 
-// TODO: stub - replace with a real ETA once Yandex's tariff/ETA endpoint is wired up.
-const STUB_ESTIMATED_DELIVERY_DAYS = '1-2 дня';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DAY_NAMES = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -111,6 +110,7 @@ function formatSchedule(schedule: YandexPoint['schedule']): string | undefined {
 export class YandexService {
   private readonly logger = new Logger(YandexService.name);
   private cache: { items: NormalizedPvz[]; expiresAt: number } | null = null;
+  private readonly etaCache = new Map<string, { value?: string; expiresAt: number }>();
 
   async getPvz(city: string, page = 1, pageSize = 20, query = '', region = ''): Promise<PvzPage> {
     if (process.env.YANDEX_MOCKED !== 'false') {
@@ -127,7 +127,56 @@ export class YandexService {
     const inCity = cityKey
       ? all.filter((p) => p.cityKey === cityKey && regionsMatch(p.region, region))
       : all;
-    return paginateAndFilter(inCity, page, pageSize, query);
+    const result = paginateAndFilter(inCity, page, pageSize, query);
+    const eta = inCity.length && cityKey ? await this.getDeliveryEstimate(`${cityKey}|${region}`, inCity[0].id) : undefined;
+    return eta ? { ...result, items: result.items.map((p) => ({ ...p, estimatedDeliveryDays: eta })) } : result;
+  }
+
+  /**
+   * Delivery period from Yandex's pricing calculator ("delivery_days"). It's a property of the
+   * route, not of one point, so it's looked up once per city using any point there. The source
+   * is YANDEX_SOURCE_ADDRESS - "Москва" by default; verified that a city-only source is accepted
+   * and that the exact street barely moves the result (Новосибирск: 8 vs 9 days).
+   */
+  private async getDeliveryEstimate(cacheKey: string, sampleStationId: string): Promise<string | undefined> {
+    const cached = this.etaCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    let value: string | undefined;
+    try {
+      const baseUrl = process.env.YANDEX_DELIVERY_API_BASE_URL ?? 'https://b2b-authproxy.taxi.yandex.net';
+      const response = await fetch(new URL('/api/b2b/platform/pricing-calculator', baseUrl), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.YANDEX_DELIVERY_API_KEY ?? ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source: { address: process.env.YANDEX_SOURCE_ADDRESS ?? 'Москва' },
+          destination: { platform_station_id: sampleStationId },
+          tariff: 'self_pickup',
+          // Nominal 1 kg parcel - product weights aren't known.
+          total_weight: 1000,
+          total_assessed_price: 100000,
+          client_price: 0,
+          payment_method: 'already_paid',
+          places: [{ physical_dims: { weight_gross: 1000, dx: 20, dy: 20, dz: 20 } }],
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) {
+        throw new Error(`Yandex pricing calculator responded with ${response.status}`);
+      }
+      const data: { delivery_days?: number } = await response.json();
+      value = typeof data.delivery_days === 'number' ? formatDays(data.delivery_days, data.delivery_days) : undefined;
+    } catch (err) {
+      this.logger.warn(`Yandex delivery estimate for ${cacheKey} unavailable: ${(err as Error).message}`);
+    }
+
+    this.etaCache.set(cacheKey, { value, expiresAt: Date.now() + (value ? ETA_TTL_MS : ETA_FAILURE_TTL_MS) });
+    return value;
   }
 
   /**
@@ -165,7 +214,6 @@ export class YandexService {
           shortAddress: shortAddress(point.address),
           name: point.name,
           workingHours: formatSchedule(point.schedule),
-          estimatedDeliveryDays: STUB_ESTIMATED_DELIVERY_DAYS,
           lat: point.position?.latitude,
           lon: point.position?.longitude,
           cityKey: normalizeLocality(point.address?.locality ?? ''),

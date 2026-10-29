@@ -11,5 +11,6 @@ import { OrderTelegramNotifyService } from './order-telegram-notify.service';
   imports: [AvtoligaModule],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService, ExternalNotifyService, OrderTelegramNotifyService],
+  exports: [OrdersService],
 })
 export class OrdersModule {}
