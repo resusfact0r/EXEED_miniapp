@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { applyMarkup } from './markup';
 import type { AvtoligaPartsResponse, LivePrice } from './types';
 
 const BATCH_SIZE = 200;
@@ -71,7 +72,6 @@ export class AvtoligaService {
 
   private mergeInto(result: Map<string, LivePrice>, parts: AvtoligaPartsResponse['SpareParts']) {
     const vendorFilter = process.env.AVTOLIGA_VENDOR_FILTER ?? 'CHERY';
-    const markupPercent = Number(process.env.AVTOLIGA_MARKUP_PERCENT ?? '0');
 
     for (const part of parts ?? []) {
       if (part.Vendor !== vendorFilter) {
@@ -83,7 +83,7 @@ export class AvtoligaService {
 
       const cheapest = part.Prices.reduce((min, p) => (p.Price < min.Price ? p : min));
       const existing = result.get(part.Articul);
-      const markedUpPrice = Math.round(cheapest.Price * (1 + markupPercent / 100) * 100) / 100;
+      const markedUpPrice = applyMarkup(cheapest.Price);
 
       if (!existing || markedUpPrice < existing.price) {
         result.set(part.Articul, { price: markedUpPrice, stockQty: cheapest.Count });

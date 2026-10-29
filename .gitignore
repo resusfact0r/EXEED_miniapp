@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 *.pem
+
+# Supplier price lists (customer-facing prices; arrive by email, not kept in git)
+server/data/*.xls
+server/data/*.xlsx

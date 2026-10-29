@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import { readFileSync } from 'node:fs';
 
+import { applyMarkup } from '../avtoliga/markup';
+
 interface CsvRow {
   code: string;
   name: string;
@@ -23,6 +25,9 @@ async function main() {
   const raw = readFileSync(filePath, 'utf-8');
   const rows: CsvRow[] = parse(raw, { columns: true, skip_empty_lines: true, trim: true });
 
+  // The CSV is the supplier's export, so its prices are supplier prices: the shop price gets the
+  // same markup as at checkout. Importing them as-is left the whole catalog 14% below what the
+  // customer was then charged, and every cart showed "цена изменилась".
   let upserted = 0;
   for (const row of rows) {
     if (!row.code || !row.name) {
@@ -33,7 +38,7 @@ async function main() {
       where: { code: row.code },
       update: {
         name: row.name,
-        price: Number(row.price ?? 0),
+        price: applyMarkup(Number(row.price ?? 0)),
         stockQty: Number(row.stockQty ?? 0),
         description: row.description || null,
         imageUrl: row.imageUrl || null,
@@ -41,7 +46,7 @@ async function main() {
       create: {
         code: row.code,
         name: row.name,
-        price: Number(row.price ?? 0),
+        price: applyMarkup(Number(row.price ?? 0)),
         stockQty: Number(row.stockQty ?? 0),
         description: row.description || null,
         imageUrl: row.imageUrl || null,

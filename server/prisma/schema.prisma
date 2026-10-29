@@ -129,3 +129,35 @@ model OrderItem {
   unitPrice   Decimal @db.Decimal(10, 2)
   quantity    Int
 }
+
+enum PriceImportStatus {
+  /// Prices and stock written to the catalog.
+  APPLIED
+  /// File read but not applied: failed a safety check (too few rows, missing columns, junk prices).
+  REJECTED
+  /// An older email superseded by a newer one in the same run - only the latest price list matters.
+  SKIPPED
+  /// Unexpected error while processing.
+  FAILED
+}
+
+/// One price list processed from the supplier's emailed Excel (or loaded by hand from a file).
+/// Message-ID makes reprocessing the same email impossible; the counts are the audit trail.
+model PriceImport {
+  id         String            @id @default(cuid())
+  source     String
+  messageUid Int?
+  messageId  String?           @unique
+  receivedAt DateTime?
+  fileName   String?
+  rows       Int               @default(0)
+  updated    Int               @default(0)
+  added      Int               @default(0)
+  hidden     Int               @default(0)
+  restored   Int               @default(0)
+  status     PriceImportStatus
+  error      String?           @db.Text
+  createdAt  DateTime          @default(now())
+
+  @@index([messageUid])
+}

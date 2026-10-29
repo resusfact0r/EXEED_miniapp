@@ -9,6 +9,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { CartModule } from './cart/cart.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { OrdersModule } from './orders/orders.module';
+import { PriceSyncModule } from './price-sync/price-sync.module';
 
 @Controller('health')
 class HealthController {
@@ -31,6 +32,7 @@ class HealthController {
     CartModule,
     DeliveryModule,
     OrdersModule,
+    PriceSyncModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -11,6 +11,7 @@
     "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
     "test": "jest",
     "import:catalog": "ts-node -r tsconfig-paths/register src/scripts/import-catalog.ts",
+    "import:price": "ts-node -r tsconfig-paths/register src/scripts/import-price.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed"
@@ -30,9 +31,12 @@
     "class-validator": "^0.14.1",
     "csv-parse": "^5.6.0",
     "dotenv": "^16.6.1",
+    "imapflow": "^2.9.1",
+    "mailparser": "^3.14.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "undici": "^7.29.1"
+    "undici": "^7.29.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
@@ -40,6 +44,7 @@
     "@nestjs/testing": "^10.4.15",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.14",
+    "@types/mailparser": "^3.9.0",
     "@types/node": "^20.17.9",
     "jest": "^29.7.0",
     "prisma": "^5.22.0",
