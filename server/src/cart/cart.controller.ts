@@ -31,6 +31,11 @@ export class CartController {
     return this.cartService.updateItem(user.id, productId, dto.quantity);
   }
 
+  @Post('acknowledge-prices')
+  acknowledgePrices(@CurrentUser() user: User) {
+    return this.cartService.acknowledgePrices(user.id);
+  }
+
   @Delete('items/:productId')
   removeItem(@CurrentUser() user: User, @Param('productId') productId: string) {
     return this.cartService.removeItem(user.id, productId);

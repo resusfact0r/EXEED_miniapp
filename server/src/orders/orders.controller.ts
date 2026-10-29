@@ -15,7 +15,7 @@ export class OrdersController {
   @Post()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   create(@CurrentUser() user: User, @Body() dto: CreateOrderDto) {
-    return this.ordersService.createFromCart(user.id, dto);
+    return this.ordersService.createFromCart(user, dto);
   }
 
   @Get()

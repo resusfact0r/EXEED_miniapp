@@ -83,8 +83,10 @@ model CartItem {
   productId  String
   product    Product  @relation(fields: [productId], references: [id])
   quantity   Int
-  /// Catalog price at the moment this line was first added, so the cart can warn the user
-  /// if the price has since moved (catalog price is only indicative, see AvtoligaService).
+  /// Price the customer last saw for this line: set when it's added and moved forward once the
+  /// cart or checkout screen has shown a change (POST /cart/acknowledge-prices). The cart warns
+  /// when the catalog price differs - with prices updating from email several times a day,
+  /// comparing against the price at first add kept the warning on forever.
   priceAtAdd Decimal  @db.Decimal(10, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

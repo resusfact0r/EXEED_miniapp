@@ -7,7 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { FulfillmentType, OrderStatus, Prisma } from '@prisma/client';
+import { FulfillmentType, OrderStatus, PaymentMethod, Prisma, type User } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
@@ -35,7 +35,14 @@ export class OrdersService {
     private readonly avtoliga: AvtoligaService,
   ) {}
 
-  async createFromCart(userId: string, dto: CreateOrderDto) {
+  async createFromCart(user: User, dto: CreateOrderDto) {
+    const userId = user.id;
+    // The operator confirms every order by phone or Telegram before issuing a payment link; the
+    // Mini App asks for the number first, but the API must not depend on that.
+    if (!user.phone) {
+      throw new BadRequestException('Чтобы оформить заказ, поделитесь номером телефона в профиле.');
+    }
+
     const cartItems = await this.prisma.cartItem.findMany({
       where: { userId },
       include: { product: true },
@@ -83,10 +90,20 @@ export class OrdersService {
       new Prisma.Decimal(0),
     );
 
-    const pickupAddressLabel =
-      dto.fulfillmentType === FulfillmentType.PICKUP
-        ? PICKUP_ADDRESSES.find((a) => a.code === dto.pickupAddressCode)?.label
-        : undefined;
+    // The checkout screen keeps both methods' choices (and pre-fills the carrier from the profile
+    // even for pickup), so only the fields of the chosen method are stored - otherwise the order,
+    // the operator's message and the external webhook would carry contradicting details.
+    const isPickup = dto.fulfillmentType === FulfillmentType.PICKUP;
+    const fulfillment = isPickup
+      ? {
+          pickupAddressCode: dto.pickupAddressCode,
+          pickupAddressLabel: PICKUP_ADDRESSES.find((a) => a.code === dto.pickupAddressCode)?.label,
+        }
+      : {
+          deliveryCarrier: dto.deliveryCarrier,
+          deliveryPvzId: dto.deliveryPvzId,
+          deliveryPvzAddress: dto.deliveryPvzAddress,
+        };
 
     const order = await this.prisma.$transaction(async (tx) => {
       // Claim the cart first. A double tap on "Оформить заказ" sends two requests that both read
@@ -104,13 +121,9 @@ export class OrdersService {
         data: {
           userId,
           fulfillmentType: dto.fulfillmentType,
-          pickupAddressCode: dto.pickupAddressCode,
-          pickupAddressLabel,
-          deliveryCarrier: dto.deliveryCarrier,
-          deliveryPvzId: dto.deliveryPvzId,
-          deliveryPvzAddress: dto.deliveryPvzAddress,
+          ...fulfillment,
           paymentMethod: dto.paymentMethod,
-          orgCardDetails: dto.orgCardDetails,
+          orgCardDetails: dto.paymentMethod === PaymentMethod.LEGAL_ENTITY ? dto.orgCardDetails : undefined,
           policyAcknowledgedAt: new Date(),
           totalAmount,
           status: 'NEW',
@@ -142,11 +155,10 @@ export class OrdersService {
     }
 
     void this.externalNotify.notify(order);
-    // Load the customer separately: the order row only snapshots delivery details, but the
-    // manager needs a phone number to actually follow up on the payment.
-    void this.prisma.user
-      .findUnique({ where: { id: userId } })
-      .then((user) => this.telegramNotify.notify({ ...order, user }))
+    // The customer goes along: the order row only snapshots delivery details, but the manager
+    // needs a phone number to actually follow up on the payment.
+    void this.telegramNotify
+      .notify({ ...order, user })
       .catch((err) => this.logger.warn(`Failed to push order #${order.orderNumber} to Telegram: ${(err as Error).message}`));
 
     return order;

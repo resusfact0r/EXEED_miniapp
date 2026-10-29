@@ -6,10 +6,12 @@ import { useCart } from '@/contexts/CartContext.tsx';
 import { Page } from '@/components/Page.tsx';
 import { CartLineItem } from '@/components/CartLineItem/CartLineItem.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
+import { useAcknowledgePriceChanges } from '@/hooks/useAcknowledgePriceChanges.ts';
 
 export const CartPage: FC = () => {
   const { cart, loading, error, refresh, updateItem, removeItem } = useCart();
   const navigate = useNavigate();
+  useAcknowledgePriceChanges(cart);
 
   if (error) {
     return (

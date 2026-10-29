@@ -11,6 +11,7 @@ import { Page } from '@/components/Page.tsx';
 import { OrgCardTextarea } from '@/components/OrgCardTextarea/OrgCardTextarea.tsx';
 import { PolicyCheckbox } from '@/components/PolicyCheckbox/PolicyCheckbox.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
+import { useAcknowledgePriceChanges } from '@/hooks/useAcknowledgePriceChanges.ts';
 
 export const CheckoutPaymentPage: FC = () => {
   const { state, setState, reset } = useCheckout();
@@ -23,6 +24,7 @@ export const CheckoutPaymentPage: FC = () => {
   // hence a ref rather than the `submitting` flag.
   const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  useAcknowledgePriceChanges(cart);
 
   // Reload the cart so the summary below shows the latest catalog prices, not whatever the cart
   // page last fetched.

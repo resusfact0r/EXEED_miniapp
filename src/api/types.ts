@@ -42,9 +42,9 @@ export interface CartLine {
   quantity: number;
   product: Pick<Product, 'id' | 'code' | 'name' | 'price' | 'stockQty' | 'packQty' | 'isActive'>;
   lineTotal: string;
-  /** Catalog price at the moment this item was first added to the cart. */
+  /** Price the customer last saw for this line. */
   priceAtAdd: string;
-  /** True if the catalog price has moved since this item was added. */
+  /** True if the catalog price has moved since the customer last saw it. */
   priceChanged: boolean;
 }
 

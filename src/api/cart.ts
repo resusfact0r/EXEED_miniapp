@@ -11,4 +11,7 @@ export const updateCartItem = (productId: string, quantity: number) =>
 
 export const removeCartItem = (productId: string) => apiClient.delete<Cart>(`/cart/items/${productId}`);
 
+/** Tells the backend the changed prices have been shown, so the warning doesn't repeat. */
+export const acknowledgeCartPrices = () => apiClient.post<{ acknowledged: number }>('/cart/acknowledge-prices');
+
 export const clearCart = () => apiClient.delete<Cart>('/cart');

@@ -109,6 +109,15 @@ export class CartService {
     return { ...(await this.getCart(userId)), capped };
   }
 
+  /** The customer has now seen the current prices: stop flagging them as changed. */
+  async acknowledgePrices(userId: string) {
+    const acknowledged = await this.prisma.$executeRaw`
+      UPDATE "CartItem" c SET "priceAtAdd" = p.price, "updatedAt" = now()
+      FROM "Product" p
+      WHERE p.id = c."productId" AND c."userId" = ${userId} AND c."priceAtAdd" <> p.price`;
+    return { acknowledged };
+  }
+
   async removeItem(userId: string, productId: string) {
     await this.prisma.cartItem.deleteMany({ where: { userId, productId } });
     return this.getCart(userId);

@@ -8,12 +8,15 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { DeliveryCarrier, FulfillmentType, PaymentMethod, PickupAddress } from '@prisma/client';
+
+export const ORG_CARD_MAX_LENGTH = 1500;
 
 /** One cart line exactly as the customer saw it on the checkout screen. */
 export class ExpectedItemDto {
@@ -43,19 +46,23 @@ export class CreateOrderDto {
   @ValidateIf((o) => o.fulfillmentType === FulfillmentType.DELIVERY)
   @IsString()
   @MinLength(1)
+  @MaxLength(100)
   deliveryPvzId?: string;
 
   @ValidateIf((o) => o.fulfillmentType === FulfillmentType.DELIVERY)
   @IsString()
   @MinLength(1)
+  @MaxLength(500)
   deliveryPvzAddress?: string;
 
   @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod;
 
+  // Bounded so the operator's Telegram message about the order (4096 chars max) still fits.
   @ValidateIf((o) => o.paymentMethod === PaymentMethod.LEGAL_ENTITY)
   @IsString()
   @MinLength(1)
+  @MaxLength(ORG_CARD_MAX_LENGTH, { message: `Реквизиты — не длиннее ${ORG_CARD_MAX_LENGTH} символов` })
   orgCardDetails?: string;
 
   @Equals(true)

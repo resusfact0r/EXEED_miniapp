@@ -13,6 +13,9 @@ const PAYMENT_LABELS: Record<string, string> = {
   LEGAL_ENTITY: 'Безнал (юр. лицо)',
 };
 
+// Telegram rejects a message over 4096 characters outright - the operator would get nothing.
+const TELEGRAM_TEXT_LIMIT = 4096;
+
 const CARRIER_LABELS: Record<string, string> = {
   CDEK: 'СДЭК',
   YANDEX: 'Яндекс.Доставка',
@@ -43,10 +46,21 @@ export class OrderTelegramNotifyService {
       return;
     }
 
-    const text = this.buildMessage(order);
+    const text = this.fitTelegramLimit(this.buildMessage(order), order.orderNumber);
     for (const chatId of chatIds) {
-      await callTelegram('sendMessage', { chat_id: chatId, text, disable_web_page_preview: true });
+      const result = await callTelegram('sendMessage', { chat_id: chatId, text, disable_web_page_preview: true });
+      if (!result?.ok) {
+        this.logger.warn(`Order #${order.orderNumber} not delivered to chat ${chatId}: ${result?.description ?? 'Telegram unreachable'}`);
+      }
     }
+  }
+
+  private fitTelegramLimit(text: string, orderNumber: number): string {
+    if (text.length <= TELEGRAM_TEXT_LIMIT) {
+      return text;
+    }
+    const tail = `\n…\nСообщение обрезано. Полный заказ №${orderNumber}: GET /api/admin/orders`;
+    return text.slice(0, TELEGRAM_TEXT_LIMIT - tail.length) + tail;
   }
 
   private buildMessage(order: Order & { items: OrderItem[]; user?: User | null }): string {
@@ -83,10 +97,8 @@ export class OrderTelegramNotifyService {
     }
 
     lines.push('');
-    // Spelled out because "ID" next to "payment link" reads as if it were the link's id:
-    // it's the order's own id, needed for PATCH /api/admin/orders/<id>.
-    lines.push('Ожидает выставления ссылки на оплату.');
-    lines.push(`ID заказа: ${order.id}`);
+    lines.push(`Выставить оплату: /pay ${order.orderNumber} <ссылка>`);
+    lines.push(`Отметить оплату: /paid ${order.orderNumber}`);
     return lines.join('\n');
   }
 }
