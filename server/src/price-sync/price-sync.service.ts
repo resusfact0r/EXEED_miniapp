@@ -20,6 +20,7 @@ const IMAP_HOSTS: Array<[RegExp, string]> = [
 ];
 
 interface Candidate {
+  folder: string;
   uid: number;
   messageId: string;
   date: Date;
@@ -76,8 +77,7 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
     try {
       client = this.createClient();
       await client.connect();
-      await client.mailboxOpen('INBOX', { readOnly: true });
-      await this.processNewMail(client);
+      await this.processNewMail(client, await this.resolveFolders(client));
       if (this.mailboxFailing) {
         this.mailboxFailing = false;
         await this.report('✅ Доступ к почте с прайсом восстановлен.');
@@ -95,26 +95,56 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
-  private async processNewMail(client: ImapFlow): Promise<void> {
+  /**
+   * Where price emails may be. The owner may archive them with a filter or block the sender so
+   * they land in spam, so besides the inbox: Gmail's "All Mail" (\All - inbox, archive and every
+   * label in one place) and the spam folder (\Junk). PRICE_MAIL_FOLDERS overrides the list.
+   */
+  private async resolveFolders(client: ImapFlow): Promise<string[]> {
+    const configured = process.env.PRICE_MAIL_FOLDERS?.split(',').map((f) => f.trim()).filter(Boolean);
+    if (configured?.length) {
+      return configured;
+    }
+    const mailboxes = await client.list();
+    const all = mailboxes.find((m) => m.specialUse === '\\All')?.path;
+    const junk = mailboxes.find((m) => m.specialUse === '\\Junk')?.path;
+    return [all ?? 'INBOX', ...(junk ? [junk] : [])];
+  }
+
+  private async processNewMail(client: ImapFlow, folders: string[]): Promise<void> {
     const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
     const query: Record<string, unknown> = { from: process.env.PRICE_MAIL_FROM, since };
     if (process.env.PRICE_MAIL_SUBJECT) {
       query.subject = process.env.PRICE_MAIL_SUBJECT;
     }
-    const uids = (await client.search(query, { uid: true })) || [];
-    if (uids.length === 0) {
-      return;
-    }
 
     const candidates: Candidate[] = [];
-    for await (const msg of client.fetch(uids, { uid: true, envelope: true, internalDate: true }, { uid: true })) {
-      const internalDate = msg.internalDate ? new Date(msg.internalDate) : undefined;
-      candidates.push({
-        uid: msg.uid,
-        // Message-ID is the stable identity across sessions; UIDs can be renumbered by the server.
-        messageId: msg.envelope?.messageId ?? `<uid-${msg.uid}@${process.env.PRICE_IMAP_USER}>`,
-        date: internalDate ?? (msg.envelope?.date ? new Date(msg.envelope.date) : new Date(0)),
-      });
+    const seen = new Set<string>();
+    for (const folder of folders) {
+      await client.mailboxOpen(folder, { readOnly: true });
+      const uids = (await client.search(query, { uid: true })) || [];
+      if (uids.length === 0) {
+        continue;
+      }
+      for await (const msg of client.fetch(uids, { uid: true, envelope: true, internalDate: true }, { uid: true })) {
+        const internalDate = msg.internalDate ? new Date(msg.internalDate) : undefined;
+        // Message-ID is the stable identity across sessions and folders; UIDs are per folder and
+        // can be renumbered by the server.
+        const messageId = msg.envelope?.messageId ?? `<uid-${folder}-${msg.uid}@${process.env.PRICE_IMAP_USER}>`;
+        if (seen.has(messageId)) {
+          continue;
+        }
+        seen.add(messageId);
+        candidates.push({
+          folder,
+          uid: msg.uid,
+          messageId,
+          date: internalDate ?? (msg.envelope?.date ? new Date(msg.envelope.date) : new Date(0)),
+        });
+      }
+    }
+    if (candidates.length === 0) {
+      return;
     }
 
     const known = await this.prisma.priceImport.findMany({
@@ -141,7 +171,7 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
         continue;
       }
 
-      const attachment = await this.findPriceAttachment(client, candidate.uid);
+      const attachment = await this.findPriceAttachment(client, candidate);
       if (!attachment) {
         await this.record(candidate, 'SKIPPED', undefined, 'В письме нет вложения .xls/.xlsx');
         continue;
@@ -161,9 +191,10 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
-  private async findPriceAttachment(client: ImapFlow, uid: number) {
+  private async findPriceAttachment(client: ImapFlow, candidate: Candidate) {
     // With the mailbox opened read-only, fetching the body can't set \Seen.
-    const message = await client.fetchOne(String(uid), { source: true }, { uid: true });
+    await client.mailboxOpen(candidate.folder, { readOnly: true });
+    const message = await client.fetchOne(String(candidate.uid), { source: true }, { uid: true });
     if (!message || !message.source) {
       return undefined;
     }
