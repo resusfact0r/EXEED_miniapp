@@ -7,6 +7,7 @@ import { Page } from '@/components/Page.tsx';
 import { Link } from '@/components/Link/Link.tsx';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge/OrderStatusBadge.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
+import { payableAmount } from '@/helpers/orderAmount.ts';
 
 export const OrdersHistoryPage: FC = () => {
   const [orders, setOrders] = useState<Order[] | null>(null);
@@ -57,7 +58,7 @@ export const OrdersHistoryPage: FC = () => {
         <Section header="Мои заказы">
           {orders.map((order) => (
             <Link key={order.id} to={`/orders/${order.id}`}>
-              <Cell subtitle={formatPrice(order.totalAmount)} after={<OrderStatusBadge status={order.status} />}>
+              <Cell subtitle={formatPrice(payableAmount(order))} after={<OrderStatusBadge status={order.status} />}>
                 Заказ №{order.orderNumber}
               </Cell>
             </Link>

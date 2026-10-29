@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { ETA_FAILURE_TTL_MS, ETA_TTL_MS, formatDays } from './eta';
+import { ETA_FAILURE_TTL_MS, ETA_TTL_MS, formatDays, roundCost, withEstimate, type DeliveryEstimate } from './eta';
 import { normalizeLocality, regionsMatch } from './locality';
 import { paginateAndFilter } from './pvz-search';
 import type { NormalizedPvz, PvzPage } from './types';
@@ -110,7 +110,7 @@ function formatSchedule(schedule: YandexPoint['schedule']): string | undefined {
 export class YandexService {
   private readonly logger = new Logger(YandexService.name);
   private cache: { items: NormalizedPvz[]; expiresAt: number } | null = null;
-  private readonly etaCache = new Map<string, { value?: string; expiresAt: number }>();
+  private readonly etaCache = new Map<string, { value?: DeliveryEstimate; expiresAt: number }>();
 
   async getPvz(city: string, page = 1, pageSize = 20, query = '', region = ''): Promise<PvzPage> {
     if (process.env.YANDEX_MOCKED !== 'false') {
@@ -128,8 +128,9 @@ export class YandexService {
       ? all.filter((p) => p.cityKey === cityKey && regionsMatch(p.region, region))
       : all;
     const result = paginateAndFilter(inCity, page, pageSize, query);
-    const eta = inCity.length && cityKey ? await this.getDeliveryEstimate(`${cityKey}|${region}`, inCity[0].id) : undefined;
-    return eta ? { ...result, items: result.items.map((p) => ({ ...p, estimatedDeliveryDays: eta })) } : result;
+    const estimate =
+      inCity.length && cityKey ? await this.getDeliveryEstimate(`${cityKey}|${region}`, inCity[0].id) : undefined;
+    return withEstimate(result, estimate);
   }
 
   /**
@@ -138,13 +139,13 @@ export class YandexService {
    * is YANDEX_SOURCE_ADDRESS - "Москва" by default; verified that a city-only source is accepted
    * and that the exact street barely moves the result (Новосибирск: 8 vs 9 days).
    */
-  private async getDeliveryEstimate(cacheKey: string, sampleStationId: string): Promise<string | undefined> {
+  private async getDeliveryEstimate(cacheKey: string, sampleStationId: string): Promise<DeliveryEstimate | undefined> {
     const cached = this.etaCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.value;
     }
 
-    let value: string | undefined;
+    let value: DeliveryEstimate | undefined;
     try {
       const baseUrl = process.env.YANDEX_DELIVERY_API_BASE_URL ?? 'https://b2b-authproxy.taxi.yandex.net';
       const response = await fetch(new URL('/api/b2b/platform/pricing-calculator', baseUrl), {
@@ -169,8 +170,11 @@ export class YandexService {
       if (!response.ok) {
         throw new Error(`Yandex pricing calculator responded with ${response.status}`);
       }
-      const data: { delivery_days?: number } = await response.json();
-      value = typeof data.delivery_days === 'number' ? formatDays(data.delivery_days, data.delivery_days) : undefined;
+      // pricing_total comes as "167.14 RUB".
+      const data: { delivery_days?: number; pricing_total?: string } = await response.json();
+      const days = typeof data.delivery_days === 'number' ? formatDays(data.delivery_days, data.delivery_days) : undefined;
+      const cost = roundCost(parseFloat(data.pricing_total ?? ''));
+      value = days || cost ? { days, cost } : undefined;
     } catch (err) {
       this.logger.warn(`Yandex delivery estimate for ${cacheKey} unavailable: ${(err as Error).message}`);
     }

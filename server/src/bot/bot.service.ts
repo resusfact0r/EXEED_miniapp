@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { Order, User } from '@prisma/client';
+import { Prisma, type Order, type User } from '@prisma/client';
 
+import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { callTelegram } from './telegram-api';
@@ -10,16 +11,32 @@ import { callTelegram } from './telegram-api';
 const NEEDS_OPERATOR: Array<'NEW' | 'AWAITING_PAYMENT_LINK'> = ['NEW', 'AWAITING_PAYMENT_LINK'];
 // Telegram caps a message at 4096 chars; cap the list well before that.
 const QUEUE_LIMIT = 10;
+const CARD_ITEMS_LIMIT = 30;
 
 const STATUS_LABELS: Record<string, string> = {
   NEW: 'новый',
   AWAITING_PAYMENT_LINK: 'ждёт ссылку на оплату',
   AWAITING_PAYMENT: 'ожидает оплаты',
   PAID: 'оплачен',
-  IN_PROGRESS: 'в работе',
+  IN_PROGRESS: 'заказан у поставщика',
+  READY_FOR_PICKUP: 'готов к выдаче',
+  SHIPPED: 'отправлен',
   COMPLETED: 'выполнен',
   CANCELLED: 'отменён',
 };
+
+const CARRIER_LABELS: Record<string, string> = { CDEK: 'СДЭК', YANDEX: 'Яндекс.Доставку' };
+
+// Statuses in which the customer has already paid - cancelling then means refunding.
+const PAID_STATUSES = ['PAID', 'IN_PROGRESS', 'READY_FOR_PICKUP'];
+
+type TransitionFailure =
+  | { reason: 'not_found' }
+  | { reason: 'wrong_status'; status: string }
+  | { reason: 'wrong_fulfillment'; fulfillmentType: string };
+type TransitionResult =
+  | ({ ok: false } & TransitionFailure)
+  | { ok: true; order: Order & { user: User }; previousStatus: string };
 
 @Injectable()
 export class BotService {
@@ -41,62 +58,81 @@ export class BotService {
       return;
     }
 
-    // Telegram appends a deep-link payload as "/start <payload>" - we don't use payloads yet,
-    // so just match on the command itself.
-    if (text === '/start' || text.startsWith('/start ')) {
-      await this.sendStartMessage(chatId);
-      return;
-    }
-
-    if (text === '/help') {
-      await this.sendHelp(chatId);
-      return;
-    }
-
-    // Lets an operator find the chat id to put in ORDER_NOTIFY_CHAT_IDS without digging
-    // through logs or the database.
-    if (text === '/id') {
-      await callTelegram('sendMessage', {
-        chat_id: chatId,
-        text: `ID этого чата: ${chatId}\n\nЧтобы сюда приходили новые заказы, добавьте его в ORDER_NOTIFY_CHAT_IDS в server/.env и перезапустите backend.`,
-      });
-      return;
-    }
-
-    if (text === '/queue') {
-      await this.sendQueue(chatId);
-      return;
-    }
-
-    // "/pay@exeed_friends_bot 12 https://..." is how commands arrive from a group chat.
+    // "/pay@exeed_friends_bot 12 https://..." is how commands arrive from a group chat; Telegram
+    // also appends a deep-link payload as "/start <payload>", which we don't use yet.
     const [rawCommand, ...args] = text.split(/\s+/);
     const command = rawCommand.split('@')[0];
-    if (command === '/pay') {
-      await this.handlePay(chatId, args);
+
+    switch (command) {
+      case '/start':
+        return this.sendStartMessage(chatId);
+      case '/help':
+        return this.sendHelp(chatId);
+      case '/id':
+        // Lets an operator find the chat id to put in ORDER_NOTIFY_CHAT_IDS without digging
+        // through logs or the database.
+        await this.reply(
+          chatId,
+          `ID этого чата: ${chatId}\n\nЧтобы сюда приходили новые заказы, добавьте его в ORDER_NOTIFY_CHAT_IDS в server/.env и перезапустите backend.`,
+        );
+        return;
+    }
+
+    const operatorCommands: Record<string, (chatId: number, args: string[]) => Promise<void>> = {
+      '/queue': (id) => this.sendQueue(id),
+      '/order': (id, a) => this.handleOrderCard(id, a),
+      '/pay': (id, a) => this.handlePay(id, a),
+      '/paid': (id, a) => this.handlePaid(id, a),
+      '/work': (id, a) => this.handleWork(id, a),
+      '/ready': (id, a) => this.handleReady(id, a),
+      '/ship': (id, a) => this.handleShip(id, a),
+      '/done': (id, a) => this.handleDone(id, a),
+      '/cancel': (id, a) => this.handleCancel(id, a),
+    };
+    const handler = operatorCommands[command];
+    if (!handler) {
       return;
     }
-    if (command === '/paid') {
-      await this.handlePaid(chatId, args);
+    // The queue and order cards expose customers' phone numbers, and the rest change orders,
+    // so all of this is limited to the operators configured for notifications.
+    if (!this.isOperator(chatId)) {
+      await this.reply(chatId, 'Эта команда доступна только операторам магазина.');
+      return;
     }
+    await handler(chatId, args);
   }
 
   private reply(chatId: number, text: string) {
     return callTelegram('sendMessage', { chat_id: chatId, text, disable_web_page_preview: true });
   }
 
-  /** "/pay 12 https://..." - record the payment link and send it to the customer. */
+  /** The order number from "/cmd 12 ...", or null after telling the operator the usage. */
+  private async orderNumberArg(chatId: number, args: string[], usage: string): Promise<number | null> {
+    const orderNumber = Number(args[0]);
+    if (!Number.isInteger(orderNumber) || orderNumber <= 0) {
+      await this.reply(chatId, `Формат: ${usage}`);
+      return null;
+    }
+    return orderNumber;
+  }
+
+  /**
+   * "/pay 12 https://..." for pickup, "/pay 12 450 https://..." for delivery - the delivery cost
+   * is required there: the customer only saw an estimate, and pays goods + exact delivery here.
+   */
   private async handlePay(chatId: number, args: string[]): Promise<void> {
-    if (!this.isOperator(chatId)) {
-      await this.reply(chatId, 'Эта команда доступна только операторам магазина.');
+    const usage = '/pay <номер> <ссылка> — самовывоз\n/pay <номер> <доставка, ₽> <ссылка> — доставка\nНапример: /pay 12 450 https://pay.example.ru/abc';
+    const orderNumber = await this.orderNumberArg(chatId, args, usage);
+    if (orderNumber === null) {
+      return;
+    }
+    const link = args.length >= 3 ? args[2] : args[1];
+    const costArg = args.length >= 3 ? args[1] : undefined;
+    if (!link) {
+      await this.reply(chatId, `Формат:\n${usage}`);
       return;
     }
 
-    const orderNumber = Number(args[0]);
-    const link = args[1];
-    if (!Number.isInteger(orderNumber) || orderNumber <= 0 || !link) {
-      await this.reply(chatId, 'Формат: /pay <номер заказа> <ссылка на оплату>\nНапример: /pay 12 https://pay.example.ru/abc');
-      return;
-    }
     // Telegram rejects the whole message if a url button isn't a real http(s) URL, and the
     // customer would get nothing - so validate before writing anything.
     let url: URL;
@@ -110,53 +146,188 @@ export class BotService {
       return;
     }
 
-    const result = await this.orders.issuePaymentLink(orderNumber, url.toString());
-    if (!result.ok) {
-      await this.reply(chatId, this.transitionError(orderNumber, result));
+    let deliveryCost: Prisma.Decimal | null = null;
+    if (costArg !== undefined) {
+      const parsed = Number(costArg.replace(',', '.'));
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        await this.reply(chatId, `«${costArg}» не похоже на стоимость доставки. Пример: /pay ${orderNumber} 450 https://…`);
+        return;
+      }
+      deliveryCost = new Prisma.Decimal(parsed.toFixed(2));
+    }
+
+    const order = await this.prisma.order.findUnique({ where: { orderNumber } });
+    if (order?.fulfillmentType === 'DELIVERY' && deliveryCost === null) {
+      await this.reply(
+        chatId,
+        `Заказ №${orderNumber} с доставкой — укажите её стоимость (0, если бесплатно):\n/pay ${orderNumber} <доставка, ₽> ${link}`,
+      );
+      return;
+    }
+    if (order?.fulfillmentType === 'PICKUP' && deliveryCost !== null) {
+      await this.reply(chatId, `Заказ №${orderNumber} — самовывоз, доставку указывать не нужно:\n/pay ${orderNumber} ${link}`);
       return;
     }
 
-    const order = result.order;
-    const delivered = await this.notifyCustomer(order, {
-      text: `Заказ №${order.orderNumber} на сумму ${this.money(order)} ждёт оплаты.`,
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Оплатить', url: url.toString() }],
-          [{ text: 'Открыть заказ', web_app: { url: this.orderUrl(order) } }],
-        ],
+    const result = await this.orders.issuePaymentLink(orderNumber, url.toString(), deliveryCost);
+    await this.afterTransition(chatId, orderNumber, result, (o) => ({
+      customer: {
+        text: `Заказ №${o.orderNumber} ждёт оплаты: ${this.amountBreakdown(o)}.`,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Оплатить', url: url.toString() }],
+            [{ text: 'Открыть заказ', web_app: { url: this.orderUrl(o) } }],
+          ],
+        },
       },
-    });
-    await this.reply(
-      chatId,
-      `Заказ №${order.orderNumber}: ссылка записана, статус «ожидает оплаты».\n` + this.deliveryReport(order, delivered),
-    );
+      operator: `ссылка записана, к оплате ${this.money(this.payable(o))}`,
+    }));
   }
 
-  /** "/paid 12" - mark the order paid and tell the customer. */
+  /** "/paid 12" - the money has arrived. */
   private async handlePaid(chatId: number, args: string[]): Promise<void> {
-    if (!this.isOperator(chatId)) {
-      await this.reply(chatId, 'Эта команда доступна только операторам магазина.');
+    const orderNumber = await this.orderNumberArg(chatId, args, '/paid <номер заказа>\nНапример: /paid 12');
+    if (orderNumber === null) {
       return;
     }
-
-    const orderNumber = Number(args[0]);
-    if (!Number.isInteger(orderNumber) || orderNumber <= 0) {
-      await this.reply(chatId, 'Формат: /paid <номер заказа>\nНапример: /paid 12');
-      return;
-    }
-
     const result = await this.orders.markPaid(orderNumber);
+    await this.afterTransition(chatId, orderNumber, result, (o) => ({
+      customer: { text: `Оплата заказа №${o.orderNumber} получена. Спасибо! Сообщим, когда заказ будет готов.` },
+      operator: `отмечен оплаченным. Дальше: /work ${o.orderNumber}, когда закажете у поставщика`,
+    }));
+  }
+
+  /** "/work 12" - ordered from the supplier. */
+  private async handleWork(chatId: number, args: string[]): Promise<void> {
+    const orderNumber = await this.orderNumberArg(chatId, args, '/work <номер заказа>');
+    if (orderNumber === null) {
+      return;
+    }
+    const result = await this.orders.startWork(orderNumber);
+    await this.afterTransition(chatId, orderNumber, result, (o) => ({
+      customer: { text: `Заказ №${o.orderNumber} в работе: детали заказаны у поставщика. Сообщим, когда заказ будет готов.` },
+      operator:
+        o.fulfillmentType === 'PICKUP'
+          ? `в работе. Когда привезут: /ready ${o.orderNumber}`
+          : `в работе. Когда отправите: /ship ${o.orderNumber} <трек-номер>`,
+    }));
+  }
+
+  /** "/ready 12" - pickup order waiting at the pickup address. */
+  private async handleReady(chatId: number, args: string[]): Promise<void> {
+    const orderNumber = await this.orderNumberArg(chatId, args, '/ready <номер заказа>');
+    if (orderNumber === null) {
+      return;
+    }
+    const result = await this.orders.markReadyForPickup(orderNumber);
+    await this.afterTransition(chatId, orderNumber, result, (o) => {
+      const address = PICKUP_ADDRESSES.find((a) => a.code === o.pickupAddressCode);
+      const lines = [`Заказ №${o.orderNumber} готов к выдаче.`];
+      if (address) {
+        lines.push(`Адрес: ${address.label}`, `Часы работы: ${address.schedule}`);
+      }
+      return {
+        customer: { text: lines.join('\n') },
+        operator: `готов к выдаче. После выдачи: /done ${o.orderNumber}`,
+      };
+    });
+  }
+
+  /** "/ship 12 1234567890" - delivery order handed to the carrier. */
+  private async handleShip(chatId: number, args: string[]): Promise<void> {
+    const usage = '/ship <номер заказа> <трек-номер>\nНапример: /ship 12 1234567890';
+    const orderNumber = await this.orderNumberArg(chatId, args, usage);
+    if (orderNumber === null) {
+      return;
+    }
+    const trackingNumber = args[1];
+    if (!trackingNumber) {
+      await this.reply(chatId, `Укажите трек-номер.\nФормат: ${usage}`);
+      return;
+    }
+    const result = await this.orders.markShipped(orderNumber, trackingNumber);
+    await this.afterTransition(chatId, orderNumber, result, (o) => {
+      const carrier = o.deliveryCarrier ? CARRIER_LABELS[o.deliveryCarrier] : 'службу доставки';
+      const trackUrl = this.trackingUrl(o);
+      return {
+        customer: {
+          text: `Заказ №${o.orderNumber} отправлен через ${carrier}.\nТрек-номер: ${trackingNumber}\nПункт выдачи: ${o.deliveryPvzAddress ?? '—'}`,
+          ...(trackUrl ? { extraButtons: [[{ text: 'Отследить посылку', url: trackUrl }]] } : {}),
+        },
+        operator: `отправлен, трек ${trackingNumber}. После получения: /done ${o.orderNumber}`,
+      };
+    });
+  }
+
+  /** "/done 12" - collected or received. */
+  private async handleDone(chatId: number, args: string[]): Promise<void> {
+    const orderNumber = await this.orderNumberArg(chatId, args, '/done <номер заказа>');
+    if (orderNumber === null) {
+      return;
+    }
+    const result = await this.orders.complete(orderNumber);
+    await this.afterTransition(chatId, orderNumber, result, (o) => ({
+      customer: { text: `Заказ №${o.orderNumber} выполнен. Спасибо за покупку!` },
+      operator: 'выполнен',
+    }));
+  }
+
+  /** "/cancel 12 нет у поставщика" - the reason goes to the customer. */
+  private async handleCancel(chatId: number, args: string[]): Promise<void> {
+    const orderNumber = await this.orderNumberArg(chatId, args, '/cancel <номер заказа> [причина]\nНапример: /cancel 12 нет у поставщика');
+    if (orderNumber === null) {
+      return;
+    }
+    const reason = args.slice(1).join(' ').trim() || null;
+    const result = await this.orders.cancel(orderNumber, reason);
+    await this.afterTransition(chatId, orderNumber, result, (o, previousStatus) => {
+      const wasPaid = PAID_STATUSES.includes(previousStatus);
+      const lines = [`Заказ №${o.orderNumber} отменён.`];
+      if (reason) {
+        lines.push(`Причина: ${reason}`);
+      }
+      if (wasPaid) {
+        lines.push('Деньги вернём — оператор свяжется с вами.');
+      }
+      return {
+        customer: { text: lines.join('\n') },
+        operator: wasPaid
+          ? `отменён. ⚠️ Заказ был оплачен — верните клиенту ${this.money(this.payable(o))}`
+          : 'отменён',
+      };
+    });
+  }
+
+  /**
+   * Shared tail of every order command: report a refused transition, or tell the customer and
+   * confirm to the operator (with the customer's phone if the customer can't be reached).
+   */
+  private async afterTransition(
+    chatId: number,
+    orderNumber: number,
+    result: TransitionResult,
+    build: (
+      order: Order & { user: User },
+      previousStatus: string,
+    ) => {
+      customer: { text: string; reply_markup?: Record<string, unknown>; extraButtons?: Array<Array<Record<string, unknown>>> };
+      operator: string;
+    },
+  ): Promise<void> {
     if (!result.ok) {
       await this.reply(chatId, this.transitionError(orderNumber, result));
       return;
     }
-
     const order = result.order;
+    const { customer, operator } = build(order, result.previousStatus);
+    const { extraButtons, reply_markup, ...message } = customer;
     const delivered = await this.notifyCustomer(order, {
-      text: `Оплата заказа №${order.orderNumber} получена. Спасибо! Сообщим, когда заказ будет готов.`,
-      reply_markup: { inline_keyboard: [[{ text: 'Открыть заказ', web_app: { url: this.orderUrl(order) } }]] },
+      ...message,
+      reply_markup: reply_markup ?? {
+        inline_keyboard: [...(extraButtons ?? []), [{ text: 'Открыть заказ', web_app: { url: this.orderUrl(order) } }]],
+      },
     });
-    await this.reply(chatId, `Заказ №${order.orderNumber} отмечен оплаченным.\n` + this.deliveryReport(order, delivered));
+    await this.reply(chatId, `Заказ №${order.orderNumber}: ${operator}.\n` + this.deliveryReport(order, delivered));
   }
 
   /**
@@ -175,18 +346,110 @@ export class BotService {
     return `⚠️ Написать клиенту не удалось — он не запускал бота. Свяжитесь по телефону: ${order.user.phone ?? 'не указан'}.`;
   }
 
-  private transitionError(
-    orderNumber: number,
-    result: { reason: 'not_found' } | { reason: 'wrong_status'; status: string },
-  ): string {
-    if (result.reason === 'not_found') {
+  private transitionError(orderNumber: number, failure: TransitionFailure): string {
+    if (failure.reason === 'not_found') {
       return `Заказа №${orderNumber} нет.`;
     }
-    return `Заказ №${orderNumber} уже «${STATUS_LABELS[result.status] ?? result.status}» — для него это действие недоступно.`;
+    if (failure.reason === 'wrong_fulfillment') {
+      return failure.fulfillmentType === 'PICKUP'
+        ? `Заказ №${orderNumber} — самовывоз: вместо /ship используйте /ready ${orderNumber}.`
+        : `Заказ №${orderNumber} — с доставкой: вместо /ready используйте /ship ${orderNumber} <трек-номер>.`;
+    }
+    return `Заказ №${orderNumber} сейчас «${STATUS_LABELS[failure.status] ?? failure.status}» — для него это действие недоступно. Подробности: /order ${orderNumber}`;
   }
 
-  private money(order: Order): string {
-    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(order.totalAmount));
+  /** "/order 12" - everything about one order, including how it got to its current status. */
+  private async handleOrderCard(chatId: number, args: string[]): Promise<void> {
+    const orderNumber = await this.orderNumberArg(chatId, args, '/order <номер заказа>');
+    if (orderNumber === null) {
+      return;
+    }
+    const order = await this.orders.getOperatorCard(orderNumber);
+    if (!order) {
+      await this.reply(chatId, `Заказа №${orderNumber} нет.`);
+      return;
+    }
+
+    const user = order.user;
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'без имени';
+    const lines = [
+      `Заказ №${order.orderNumber} — ${STATUS_LABELS[order.status] ?? order.status}`,
+      '',
+      `Клиент: ${name}${user.username ? ` (@${user.username})` : ''}, ${user.phone ?? 'телефон не указан'}`,
+    ];
+    if (order.fulfillmentType === 'PICKUP') {
+      lines.push(`Самовывоз: ${order.pickupAddressLabel ?? '—'}`);
+    } else {
+      lines.push(`Доставка ${order.deliveryCarrier ? CARRIER_LABELS[order.deliveryCarrier] : ''}: ${order.deliveryPvzAddress ?? '—'}`);
+      if (order.trackingNumber) {
+        lines.push(`Трек-номер: ${order.trackingNumber}`);
+      }
+    }
+    lines.push(`Оплата: ${order.paymentMethod === 'LEGAL_ENTITY' ? 'безнал (юр. лицо)' : 'по ссылке'}`);
+    if (order.orgCardDetails) {
+      lines.push(`Реквизиты: ${order.orgCardDetails.slice(0, 500)}`);
+    }
+    lines.push(`Сумма: ${this.amountBreakdown(order)}`);
+    if (order.paymentLink) {
+      lines.push(`Ссылка: ${order.paymentLink}`);
+    }
+    if (order.cancelReason) {
+      lines.push(`Причина отмены: ${order.cancelReason}`);
+    }
+
+    lines.push('', 'Состав:');
+    for (const item of order.items.slice(0, CARD_ITEMS_LIMIT)) {
+      lines.push(`• ${item.productCode} — ${item.productName} × ${item.quantity} по ${this.money(item.unitPrice)}`);
+    }
+    if (order.items.length > CARD_ITEMS_LIMIT) {
+      lines.push(`…и ещё ${order.items.length - CARD_ITEMS_LIMIT} позиций`);
+    }
+
+    lines.push('', 'История:');
+    for (const change of order.statusChanges) {
+      const note = change.note ? ` (${change.note})` : '';
+      lines.push(`${this.moscowTime(change.createdAt)} — ${STATUS_LABELS[change.status] ?? change.status}${note}`);
+    }
+    if (order.statusChanges.length === 0) {
+      lines.push(`${this.moscowTime(order.createdAt)} — оформлен (подробная история ведётся с 29.10.2026)`);
+    }
+
+    await this.reply(chatId, lines.join('\n').slice(0, 4096));
+  }
+
+  private payable(order: Order): Prisma.Decimal {
+    return order.totalAmount.add(order.deliveryCost ?? 0);
+  }
+
+  /** "3 200 ₽" for pickup, "товары 3 200 ₽ + доставка 450 ₽ = 3 650 ₽" once delivery is priced. */
+  private amountBreakdown(order: Order): string {
+    if (order.deliveryCost === null) {
+      return this.money(order.totalAmount);
+    }
+    return `товары ${this.money(order.totalAmount)} + доставка ${this.money(order.deliveryCost)} = ${this.money(this.payable(order))}`;
+  }
+
+  private money(value: Prisma.Decimal.Value): string {
+    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(value));
+  }
+
+  private moscowTime(date: Date): string {
+    return date.toLocaleString('ru-RU', {
+      timeZone: 'Europe/Moscow',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  private trackingUrl(order: Order): string | undefined {
+    // CDEK has a public tracking page by number; Yandex's tracking links are per shipment and
+    // come from their API, so for Yandex the customer gets the number only.
+    if (order.deliveryCarrier === 'CDEK' && order.trackingNumber) {
+      return `https://www.cdek.ru/ru/tracking?order_id=${encodeURIComponent(order.trackingNumber)}`;
+    }
+    return undefined;
   }
 
   private orderUrl(order: Order): string {
@@ -220,34 +483,34 @@ export class BotService {
   }
 
   private async sendHelp(chatId: number): Promise<void> {
-    const lines = [
-      'Команды:',
-      '',
-      '/start — открыть каталог запчастей',
-      '/help — эта справка',
-    ];
+    const lines = ['Команды:', '', '/start — открыть каталог запчастей', '/help — эта справка'];
 
     if (this.isOperator(chatId)) {
-      lines.push('');
-      lines.push('Для оператора:');
-      lines.push('/queue — заказы, ожидающие действий');
-      lines.push('/pay <номер> <ссылка> — выставить оплату и отправить ссылку клиенту');
-      lines.push('/paid <номер> — отметить заказ оплаченным');
-      lines.push('/id — идентификатор этого чата');
+      lines.push(
+        '',
+        'Для оператора:',
+        '/queue — заказы, ожидающие ссылку на оплату',
+        '/order <номер> — карточка заказа с историей',
+        '',
+        'Путь заказа:',
+        '/pay <номер> <ссылка> — выставить оплату (самовывоз)',
+        '/pay <номер> <доставка, ₽> <ссылка> — выставить оплату с доставкой',
+        '/paid <номер> — оплата получена',
+        '/work <номер> — заказали у поставщика',
+        '/ready <номер> — самовывоз: готов к выдаче',
+        '/ship <номер> <трек> — доставка: отправлен',
+        '/done <номер> — выдан / получен',
+        '/cancel <номер> [причина] — отменить',
+        '',
+        'Клиенту каждый раз приходит сообщение.',
+        '/id — идентификатор этого чата',
+      );
     }
 
     await callTelegram('sendMessage', { chat_id: chatId, text: lines.join('\n') });
   }
 
   private async sendQueue(chatId: number): Promise<void> {
-    if (!this.isOperator(chatId)) {
-      await callTelegram('sendMessage', {
-        chat_id: chatId,
-        text: 'Эта команда доступна только операторам магазина.',
-      });
-      return;
-    }
-
     try {
       const [pending, awaitingPayment] = await Promise.all([
         this.prisma.order.findMany({
@@ -260,19 +523,17 @@ export class BotService {
 
       if (pending.length === 0) {
         const tail = awaitingPayment > 0 ? `\n\nЖдут оплаты клиентом: ${awaitingPayment}` : '';
-        await callTelegram('sendMessage', {
-          chat_id: chatId,
-          text: `Очередь пуста — все заказы обработаны.${tail}`,
-        });
+        await this.reply(chatId, `Очередь пуста — все заказы обработаны.${tail}`);
         return;
       }
 
       const lines = [`📋 Ожидают ссылку на оплату: ${pending.length}`, ''];
       for (const order of pending.slice(0, QUEUE_LIMIT)) {
         const name = [order.user?.firstName, order.user?.lastName].filter(Boolean).join(' ') || 'без имени';
-        lines.push(`№${order.orderNumber} — ${order.totalAmount.toString()} ₽`);
+        const delivery = order.fulfillmentType === 'DELIVERY' ? ' + доставка' : '';
+        lines.push(`№${order.orderNumber} — ${this.money(order.totalAmount)}${delivery}`);
         lines.push(`${name}, ${order.user?.phone ?? 'телефон не указан'}`);
-        lines.push(order.id);
+        lines.push(`/order ${order.orderNumber}`);
         lines.push('');
       }
 
@@ -283,10 +544,10 @@ export class BotService {
         lines.push(`Ждут оплаты клиентом: ${awaitingPayment}`);
       }
 
-      await callTelegram('sendMessage', { chat_id: chatId, text: lines.join('\n') });
+      await this.reply(chatId, lines.join('\n'));
     } catch (err) {
       this.logger.error(`Failed to build queue for chat ${chatId}: ${(err as Error).message}`);
-      await callTelegram('sendMessage', { chat_id: chatId, text: 'Не удалось получить очередь заказов.' });
+      await this.reply(chatId, 'Не удалось получить очередь заказов.');
     }
   }
 }

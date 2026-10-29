@@ -132,7 +132,7 @@ export const PvzPicker: FC<PvzPickerProps> = ({
                   <Cell
                     key={pvz.id}
                     subtitle={pvz.workingHours}
-                    description={pvz.estimatedDeliveryDays ? `Срок доставки: ${pvz.estimatedDeliveryDays}` : undefined}
+                    description={deliveryHint(pvz)}
                     before={<Radio name="pvz" checked={selectedPvzId === pvz.id} onChange={() => onSelectPvz(pvz)} />}
                     onClick={() => onSelectPvz(pvz)}
                   >
@@ -157,3 +157,14 @@ export const PvzPicker: FC<PvzPickerProps> = ({
     </List>
   );
 };
+
+/** "Доставка от 200 ₽ · 4–5 дней" - the price is for a nominal 1 kg parcel, hence "от". */
+function deliveryHint(pvz: Pvz): string | undefined {
+  const parts = [
+    pvz.estimatedDeliveryCost ? `Доставка от ${pvz.estimatedDeliveryCost} ₽` : undefined,
+    pvz.estimatedDeliveryDays ? `срок ${pvz.estimatedDeliveryDays}` : undefined,
+  ].filter(Boolean);
+  if (parts.length === 0) return undefined;
+  const text = parts.join(' · ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}

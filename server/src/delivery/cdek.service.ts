@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { ETA_FAILURE_TTL_MS, ETA_TTL_MS, formatDays } from './eta';
+import { ETA_FAILURE_TTL_MS, ETA_TTL_MS, formatDays, roundCost, withEstimate, type DeliveryEstimate } from './eta';
 import { paginateAndFilter } from './pvz-search';
 import type { NormalizedCity, NormalizedPvz, PvzPage } from './types';
 
@@ -57,7 +57,7 @@ export class CdekService {
   private readonly logger = new Logger(CdekService.name);
   private tokenCache: CdekTokenCache | null = null;
   private readonly pvzCache = new Map<number, { items: NormalizedPvz[]; expiresAt: number }>();
-  private readonly etaCache = new Map<number, { value?: string; expiresAt: number }>();
+  private readonly etaCache = new Map<number, { value?: DeliveryEstimate; expiresAt: number }>();
 
   async getCities(query: string): Promise<NormalizedCity[]> {
     if (process.env.CDEK_MOCKED !== 'false') {
@@ -90,14 +90,13 @@ export class CdekService {
   }
 
   async getPvz(cityCode: number, page = 1, pageSize = 20, query = ''): Promise<PvzPage> {
-    const [all, eta] = await Promise.all([this.getAllPvzForCity(cityCode), this.getDeliveryEstimate(cityCode)]);
-    const result = paginateAndFilter(all, page, pageSize, query);
-    // The period depends on the route, not the individual point, so one lookup covers the city.
-    return eta ? { ...result, items: result.items.map((p) => ({ ...p, estimatedDeliveryDays: eta })) } : result;
+    const [all, estimate] = await Promise.all([this.getAllPvzForCity(cityCode), this.getDeliveryEstimate(cityCode)]);
+    // Period and price depend on the route, not the individual point, so one lookup covers the city.
+    return withEstimate(paginateAndFilter(all, page, pageSize, query), estimate);
   }
 
-  /** Real delivery period from CDEK's tariff calculator, e.g. "4–5 дней", or undefined. */
-  private async getDeliveryEstimate(cityCode: number): Promise<string | undefined> {
+  /** Real delivery period and price from CDEK's tariff calculator, or undefined. */
+  private async getDeliveryEstimate(cityCode: number): Promise<DeliveryEstimate | undefined> {
     if (process.env.CDEK_MOCKED !== 'false') {
       return undefined;
     }
@@ -106,7 +105,7 @@ export class CdekService {
       return cached.value;
     }
 
-    let value: string | undefined;
+    let value: DeliveryEstimate | undefined;
     try {
       const token = await this.getAccessToken();
       const baseUrl = process.env.CDEK_API_BASE_URL ?? 'https://api.cdek.ru';
@@ -123,12 +122,15 @@ export class CdekService {
       if (!response.ok) {
         throw new Error(`CDEK calculator responded with ${response.status}`);
       }
-      const data: { tariff_codes?: Array<{ tariff_code: number; period_min: number; period_max: number }> } =
-        await response.json();
+      const data: {
+        tariff_codes?: Array<{ tariff_code: number; period_min: number; period_max: number; delivery_sum: number }>;
+      } = await response.json();
       const tariff = ETA_TARIFF_PRIORITY.map((code) => data.tariff_codes?.find((t) => t.tariff_code === code)).find(
         Boolean,
       );
-      value = tariff ? formatDays(tariff.period_min, tariff.period_max) : undefined;
+      value = tariff
+        ? { days: formatDays(tariff.period_min, tariff.period_max), cost: roundCost(tariff.delivery_sum) }
+        : undefined;
     } catch (err) {
       this.logger.warn(`CDEK delivery estimate for city ${cityCode} unavailable: ${(err as Error).message}`);
     }

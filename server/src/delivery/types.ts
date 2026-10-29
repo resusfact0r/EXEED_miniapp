@@ -10,6 +10,8 @@ export interface NormalizedPvz {
   workingHours?: string;
   /** Approximate time to deliver an order to this pickup point, e.g. "1-3 дня". */
   estimatedDeliveryDays?: string;
+  /** Lower-bound delivery cost in rubles for a nominal 1 kg parcel ("от N ₽"). */
+  estimatedDeliveryCost?: number;
   lat?: number;
   lon?: number;
 }

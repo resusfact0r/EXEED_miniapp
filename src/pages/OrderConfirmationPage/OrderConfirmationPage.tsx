@@ -40,7 +40,11 @@ export const OrderConfirmationPage: FC = () => {
     <Page back={false}>
       <Placeholder
         header={`Заказ №${order.orderNumber} оформлен`}
-        description={`Сумма: ${formatPrice(order.totalAmount)}. Мы получили ваш заказ и скоро свяжемся с вами для уточнения деталей оплаты и доставки. Заказанные запчасти возврату не подлежат.`}
+        description={
+          order.fulfillmentType === 'DELIVERY'
+            ? `Сумма за товары: ${formatPrice(order.totalAmount)}. Пришлём ссылку на оплату с точной стоимостью доставки. Заказанные запчасти возврату не подлежат.`
+            : `Сумма: ${formatPrice(order.totalAmount)}. Пришлём ссылку на оплату в этот чат. Заказанные запчасти возврату не подлежат.`
+        }
         action={
           <Button size="l" onClick={() => navigate('/catalog')}>
             Вернуться в каталог

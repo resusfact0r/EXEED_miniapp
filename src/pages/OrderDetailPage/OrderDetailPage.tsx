@@ -8,6 +8,7 @@ import type { Order } from '@/api/types.ts';
 import { Page } from '@/components/Page.tsx';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge/OrderStatusBadge.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
+import { payableAmount } from '@/helpers/orderAmount.ts';
 
 const FULFILLMENT_LABELS: Record<Order['fulfillmentType'], string> = {
   PICKUP: 'Самовывоз',
@@ -59,6 +60,23 @@ export const OrderDetailPage: FC = () => {
           {order.fulfillmentType === 'DELIVERY' && order.deliveryPvzAddress && (
             <Cell subtitle={order.deliveryPvzAddress}>{order.deliveryCarrier === 'CDEK' ? 'СДЭК' : 'Яндекс.Доставка'}</Cell>
           )}
+          {order.trackingNumber && (
+            <Cell
+              subtitle={order.deliveryCarrier === 'CDEK' ? 'Нажмите, чтобы отследить' : undefined}
+              onClick={
+                order.deliveryCarrier === 'CDEK'
+                  ? () => openLink(`https://www.cdek.ru/ru/tracking?order_id=${encodeURIComponent(order.trackingNumber!)}`)
+                  : undefined
+              }
+            >
+              Трек-номер: {order.trackingNumber}
+            </Cell>
+          )}
+          {order.status === 'CANCELLED' && order.cancelReason && (
+            <Cell multiline subtitle={order.cancelReason}>
+              Причина отмены
+            </Cell>
+          )}
           <Cell subtitle={PAYMENT_LABELS[order.paymentMethod]}>Способ оплаты</Cell>
           {order.paymentLink && (
             // Rendered as a real link: inside Telegram's WebView plain text can't be tapped,
@@ -71,12 +89,25 @@ export const OrderDetailPage: FC = () => {
             </Cell>
           )}
         </Section>
-        <Section header="Состав заказа" footer={`Итого: ${formatPrice(order.totalAmount)}`}>
+        <Section
+          header="Состав заказа"
+          footer={
+            order.fulfillmentType === 'DELIVERY' && order.deliveryCost === null
+              ? 'Стоимость доставки придёт вместе со ссылкой на оплату.'
+              : undefined
+          }
+        >
           {order.items.map((item) => (
             <Cell key={item.id} subtitle={`${formatPrice(item.unitPrice)} × ${item.quantity}`}>
               {item.productName} ({item.productCode})
             </Cell>
           ))}
+          {order.deliveryCost !== null && (
+            <Cell after={<span style={{ whiteSpace: 'nowrap' }}>{formatPrice(order.deliveryCost)}</span>}>Доставка</Cell>
+          )}
+          <Cell after={<b style={{ whiteSpace: 'nowrap' }}>{formatPrice(payableAmount(order))}</b>}>
+            {order.deliveryCost !== null ? 'К оплате' : order.fulfillmentType === 'DELIVERY' ? 'Итого за товары' : 'Итого'}
+          </Cell>
         </Section>
       </List>
     </Page>

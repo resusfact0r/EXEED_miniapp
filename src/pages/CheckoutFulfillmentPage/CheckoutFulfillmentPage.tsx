@@ -91,6 +91,7 @@ export const CheckoutFulfillmentPage: FC = () => {
                         deliveryCarrier: lastOrder.deliveryCarrier,
                         deliveryPvzId: lastOrder.deliveryPvzId,
                         deliveryPvzAddress: lastOrder.deliveryPvzAddress,
+                        deliveryCostEstimate: null,
                       });
                       navigate('/checkout/payment');
                     }}
@@ -114,6 +115,7 @@ export const CheckoutFulfillmentPage: FC = () => {
                         cityRegion: null,
                         deliveryPvzId: null,
                         deliveryPvzAddress: null,
+                        deliveryCostEstimate: null,
                       })
                     }
                   >
@@ -130,10 +132,14 @@ export const CheckoutFulfillmentPage: FC = () => {
                 cityName={state.cityName}
                 cityRegion={state.cityRegion}
                 onSelectCarrier={(carrier) =>
-                  setState({ deliveryCarrier: carrier, deliveryPvzId: null, deliveryPvzAddress: null })
+                  setState({ deliveryCarrier: carrier, deliveryPvzId: null, deliveryPvzAddress: null, deliveryCostEstimate: null })
                 }
                 onSelectPvz={(pvz) => {
-                  setState({ deliveryPvzId: pvz.id, deliveryPvzAddress: pvz.address });
+                  setState({
+                    deliveryPvzId: pvz.id,
+                    deliveryPvzAddress: pvz.address,
+                    deliveryCostEstimate: pvz.estimatedDeliveryCost ?? null,
+                  });
                   // The PVZ list can be long - jump straight to the next step instead of leaving
                   // it sitting on screen waiting for a separate "Next" tap.
                   navigate('/checkout/payment');

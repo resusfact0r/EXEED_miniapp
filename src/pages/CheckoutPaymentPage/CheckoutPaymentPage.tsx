@@ -106,7 +106,14 @@ export const CheckoutPaymentPage: FC = () => {
           </p>
         )}
         {cart && cart.items.length > 0 && (
-          <Section header="Ваш заказ" footer={`Итого: ${formatPrice(cart.subtotal)}`}>
+          <Section
+            header="Ваш заказ"
+            footer={
+              state.fulfillmentType === 'DELIVERY'
+                ? 'Точную стоимость доставки пришлём вместе со ссылкой на оплату.'
+                : undefined
+            }
+          >
             {cart.items.map((line) => (
               <Cell
                 key={line.productId}
@@ -117,6 +124,20 @@ export const CheckoutPaymentPage: FC = () => {
                 {line.product.name}
               </Cell>
             ))}
+            {state.fulfillmentType === 'DELIVERY' && (
+              <Cell
+                after={
+                  <span style={{ whiteSpace: 'nowrap' }}>
+                    {state.deliveryCostEstimate ? `от ${formatPrice(state.deliveryCostEstimate)}` : 'по тарифу'}
+                  </span>
+                }
+              >
+                Доставка
+              </Cell>
+            )}
+            <Cell after={<b style={{ whiteSpace: 'nowrap' }}>{formatPrice(cart.subtotal)}</b>}>
+              {state.fulfillmentType === 'DELIVERY' ? 'Итого за товары' : 'Итого'}
+            </Cell>
           </Section>
         )}
         <Section header="Способ оплаты">

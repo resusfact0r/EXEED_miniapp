@@ -8,7 +8,9 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   AWAITING_PAYMENT_LINK: 'Ожидает ссылку на оплату',
   AWAITING_PAYMENT: 'Ожидает оплаты',
   PAID: 'Оплачен',
-  IN_PROGRESS: 'В обработке',
+  IN_PROGRESS: 'В работе',
+  READY_FOR_PICKUP: 'Готов к выдаче',
+  SHIPPED: 'Отправлен',
   COMPLETED: 'Завершён',
   CANCELLED: 'Отменён',
 };
@@ -19,6 +21,8 @@ const STATUS_MODES: Record<OrderStatus, 'primary' | 'critical' | 'secondary' | '
   AWAITING_PAYMENT: 'secondary',
   PAID: 'primary',
   IN_PROGRESS: 'primary',
+  READY_FOR_PICKUP: 'primary',
+  SHIPPED: 'primary',
   COMPLETED: 'gray',
   CANCELLED: 'critical',
 };

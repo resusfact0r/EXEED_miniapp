@@ -19,6 +19,9 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { ExternalNotifyService } from './external-notify.service';
 import { OrderTelegramNotifyService } from './order-telegram-notify.service';
 
+// /pay may re-issue a link (e.g. a corrected delivery cost) until the order is paid.
+const AWAITING_PAYMENT_FROM: OrderStatus[] = ['NEW', 'AWAITING_PAYMENT_LINK', 'AWAITING_PAYMENT'];
+
 type CartItemWithProduct = Prisma.CartItemGetPayload<{ include: { product: true } }>;
 
 const money = (value: Prisma.Decimal.Value) =>
@@ -127,6 +130,7 @@ export class OrdersService {
           policyAcknowledgedAt: new Date(),
           totalAmount,
           status: 'NEW',
+          statusChanges: { create: { status: 'NEW' } },
           items: {
             create: priced.map(({ item, unitPrice }) => ({
               productId: item.productId,
@@ -250,38 +254,102 @@ export class OrdersService {
   }
 
   /**
-   * Operator flow from the bot (/pay): record the payment link and move the order to "awaiting
+   * Operator flow from the bot (/pay): record the payment link (and, for delivery orders, the
+   * exact delivery cost - the customer only saw an estimate) and move the order to "awaiting
    * payment". Refused once the order is already paid, in progress, done or cancelled - a fresh
    * link there would only confuse the customer.
    */
-  async issuePaymentLink(orderNumber: number, paymentLink: string) {
-    return this.operatorTransition(orderNumber, ['NEW', 'AWAITING_PAYMENT_LINK', 'AWAITING_PAYMENT'], {
-      paymentLink,
-      status: 'AWAITING_PAYMENT',
+  async issuePaymentLink(orderNumber: number, paymentLink: string, deliveryCost: Prisma.Decimal | null) {
+    return this.operatorTransition(orderNumber, AWAITING_PAYMENT_FROM, 'AWAITING_PAYMENT', {
+      data: { paymentLink, deliveryCost },
     });
   }
 
   /** Operator flow from the bot (/paid): the money has arrived. */
   async markPaid(orderNumber: number) {
-    return this.operatorTransition(orderNumber, ['NEW', 'AWAITING_PAYMENT_LINK', 'AWAITING_PAYMENT'], {
-      status: 'PAID',
+    return this.operatorTransition(orderNumber, AWAITING_PAYMENT_FROM, 'PAID');
+  }
+
+  /** /work: ordered from the supplier. */
+  async startWork(orderNumber: number) {
+    return this.operatorTransition(orderNumber, ['PAID'], 'IN_PROGRESS');
+  }
+
+  /** /ready: a pickup order is waiting at the pickup address. */
+  async markReadyForPickup(orderNumber: number) {
+    return this.operatorTransition(orderNumber, ['PAID', 'IN_PROGRESS'], 'READY_FOR_PICKUP', {
+      fulfillmentType: FulfillmentType.PICKUP,
     });
   }
 
+  /** /ship: a delivery order is handed to the carrier. */
+  async markShipped(orderNumber: number, trackingNumber: string) {
+    return this.operatorTransition(orderNumber, ['PAID', 'IN_PROGRESS'], 'SHIPPED', {
+      fulfillmentType: FulfillmentType.DELIVERY,
+      data: { trackingNumber },
+      note: trackingNumber,
+    });
+  }
+
+  /** /done: collected or received. Only after payment - an unpaid order can't be "done". */
+  async complete(orderNumber: number) {
+    return this.operatorTransition(orderNumber, ['PAID', 'IN_PROGRESS', 'READY_FOR_PICKUP', 'SHIPPED'], 'COMPLETED');
+  }
+
+  /** /cancel: allowed until the parcel has left - after that it's a return, not a cancellation. */
+  async cancel(orderNumber: number, reason: string | null) {
+    return this.operatorTransition(
+      orderNumber,
+      ['NEW', 'AWAITING_PAYMENT_LINK', 'AWAITING_PAYMENT', 'PAID', 'IN_PROGRESS', 'READY_FOR_PICKUP'],
+      'CANCELLED',
+      { data: { cancelReason: reason }, note: reason ?? undefined },
+    );
+  }
+
+  /** Everything the operator's /order card shows. */
+  getOperatorCard(orderNumber: number) {
+    return this.prisma.order.findUnique({
+      where: { orderNumber },
+      include: { items: true, user: true, statusChanges: { orderBy: { createdAt: 'asc' } } },
+    });
+  }
+
+  /**
+   * Moves an order to `to` only if it's currently in one of `allowedFrom` (and of the given
+   * fulfillment type). The check and the update are one conditional UPDATE, so two operators
+   * acting on the same order at once can't both win. Logs the change for /order.
+   */
   private async operatorTransition(
     orderNumber: number,
     allowedFrom: OrderStatus[],
-    data: { status: OrderStatus; paymentLink?: string },
+    to: OrderStatus,
+    options: { fulfillmentType?: FulfillmentType; data?: Prisma.OrderUpdateManyMutationInput; note?: string } = {},
   ) {
-    const order = await this.prisma.order.findUnique({ where: { orderNumber } });
-    if (!order) {
+    const before = await this.prisma.order.findUnique({ where: { orderNumber } });
+    if (!before) {
       return { ok: false as const, reason: 'not_found' as const };
     }
-    if (!allowedFrom.includes(order.status)) {
-      return { ok: false as const, reason: 'wrong_status' as const, status: order.status };
+    if (options.fulfillmentType && before.fulfillmentType !== options.fulfillmentType) {
+      return { ok: false as const, reason: 'wrong_fulfillment' as const, fulfillmentType: before.fulfillmentType };
     }
-    const updated = await this.prisma.order.update({ where: { orderNumber }, data, include: { user: true } });
-    return { ok: true as const, order: updated };
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.order.updateMany({
+        where: { orderNumber, status: { in: allowedFrom } },
+        data: { ...options.data, status: to },
+      });
+      if (count === 0) {
+        return null;
+      }
+      await tx.orderStatusChange.create({ data: { orderId: before.id, status: to, note: options.note } });
+      return tx.order.findUniqueOrThrow({ where: { orderNumber }, include: { user: true } });
+    });
+
+    if (!updated) {
+      const current = await this.prisma.order.findUniqueOrThrow({ where: { orderNumber } });
+      return { ok: false as const, reason: 'wrong_status' as const, status: current.status };
+    }
+    return { ok: true as const, order: updated, previousStatus: before.status };
   }
 
   async updateForAdmin(id: string, dto: UpdateOrderStatusDto) {
@@ -294,6 +362,10 @@ export class OrdersService {
       data: {
         ...(dto.status ? { status: dto.status } : {}),
         ...(dto.paymentLink !== undefined ? { paymentLink: dto.paymentLink } : {}),
+        // Admin API changes go in the same log as the bot's, so /order shows the full story.
+        ...(dto.status && dto.status !== order.status
+          ? { statusChanges: { create: { status: dto.status, note: 'admin API' } } }
+          : {}),
       },
     });
   }

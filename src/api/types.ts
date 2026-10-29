@@ -69,6 +69,8 @@ export interface Pvz {
   name?: string;
   workingHours?: string;
   estimatedDeliveryDays?: string;
+  /** Lower bound for a nominal 1 kg parcel, rubles - shown as "от N ₽". */
+  estimatedDeliveryCost?: number;
   lat?: number;
   lon?: number;
 }
@@ -99,6 +101,8 @@ export type OrderStatus =
   | 'AWAITING_PAYMENT'
   | 'PAID'
   | 'IN_PROGRESS'
+  | 'READY_FOR_PICKUP'
+  | 'SHIPPED'
   | 'COMPLETED'
   | 'CANCELLED';
 
@@ -135,7 +139,12 @@ export interface Order {
   paymentMethod: PaymentMethod;
   orgCardDetails: string | null;
   paymentLink: string | null;
+  /** Goods only. */
   totalAmount: string;
+  /** Exact delivery cost, set by the operator together with the payment link. */
+  deliveryCost: string | null;
+  trackingNumber: string | null;
+  cancelReason: string | null;
   createdAt: string;
   items: OrderItemDto[];
 }

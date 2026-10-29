@@ -14,6 +14,8 @@ export interface CheckoutState {
   cityRegion: string | null;
   deliveryPvzId: string | null;
   deliveryPvzAddress: string | null;
+  /** "от N ₽" from the carrier's calculator for the chosen city; null when unknown. */
+  deliveryCostEstimate: number | null;
   paymentMethod: PaymentMethod | null;
   orgCardDetails: string;
   policyAcknowledged: boolean;
@@ -29,6 +31,7 @@ const initialState: CheckoutState = {
   cityRegion: null,
   deliveryPvzId: null,
   deliveryPvzAddress: null,
+  deliveryCostEstimate: null,
   paymentMethod: null,
   orgCardDetails: '',
   policyAcknowledged: false,

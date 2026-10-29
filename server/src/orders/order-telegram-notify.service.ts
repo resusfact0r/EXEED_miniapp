@@ -97,7 +97,11 @@ export class OrderTelegramNotifyService {
     }
 
     lines.push('');
-    lines.push(`Выставить оплату: /pay ${order.orderNumber} <ссылка>`);
+    lines.push(
+      order.fulfillmentType === 'DELIVERY'
+        ? `Выставить оплату: /pay ${order.orderNumber} <доставка, ₽> <ссылка>`
+        : `Выставить оплату: /pay ${order.orderNumber} <ссылка>`,
+    );
     lines.push(`Отметить оплату: /paid ${order.orderNumber}`);
     return lines.join('\n');
   }
