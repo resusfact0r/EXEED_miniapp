@@ -133,7 +133,8 @@ export const PvzPicker: FC<PvzPickerProps> = ({
                     key={pvz.id}
                     subtitle={pvz.workingHours}
                     description={deliveryHint(pvz)}
-                    before={<Radio name="pvz" checked={selectedPvzId === pvz.id} onChange={() => onSelectPvz(pvz)} />}
+                    // The radio only shows the choice; a tap on it bubbles to the cell's onClick.
+                    before={<Radio name="pvz" checked={selectedPvzId === pvz.id} readOnly />}
                     onClick={() => onSelectPvz(pvz)}
                   >
                     {/* The point's name is left out on purpose: CDEK's repeats the address

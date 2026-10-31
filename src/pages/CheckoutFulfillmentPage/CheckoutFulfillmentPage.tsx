@@ -1,5 +1,5 @@
 import { Button, Cell, List, Section, SegmentedControl } from '@telegram-apps/telegram-ui';
-import { useEffect, useState, type FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { listOrders } from '@/api/orders.ts';
@@ -17,6 +17,11 @@ export const CheckoutFulfillmentPage: FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
+  // One tap on a pickup point's radio reaches the cell's onClick twice: the browser delivers a
+  // click on a <label> and again on the input it wraps. Each would auto-advance, pushing the
+  // payment step into history twice - and then "Back" or "Сменить" there just reopened it.
+  // Guarded here, where the navigation happens; the page remounts fresh on the way back.
+  const advancing = useRef(false);
 
   // Offer a one-tap "reuse my last PVZ" shortcut instead of making a returning customer search
   // for their address again - reuses the delivery snapshot already stored on their past orders,
@@ -92,6 +97,7 @@ export const CheckoutFulfillmentPage: FC = () => {
                         deliveryPvzId: lastOrder.deliveryPvzId,
                         deliveryPvzAddress: lastOrder.deliveryPvzAddress,
                         deliveryCostEstimate: null,
+                        deliveryDaysEstimate: null,
                       });
                       navigate('/checkout/payment');
                     }}
@@ -116,6 +122,7 @@ export const CheckoutFulfillmentPage: FC = () => {
                         deliveryPvzId: null,
                         deliveryPvzAddress: null,
                         deliveryCostEstimate: null,
+                        deliveryDaysEstimate: null,
                       })
                     }
                   >
@@ -132,13 +139,26 @@ export const CheckoutFulfillmentPage: FC = () => {
                 cityName={state.cityName}
                 cityRegion={state.cityRegion}
                 onSelectCarrier={(carrier) =>
-                  setState({ deliveryCarrier: carrier, deliveryPvzId: null, deliveryPvzAddress: null, deliveryCostEstimate: null })
+                  setState({
+                    deliveryCarrier: carrier,
+                    deliveryPvzId: null,
+                    deliveryPvzAddress: null,
+                    deliveryCostEstimate: null,
+                    deliveryDaysEstimate: null,
+                  })
                 }
                 onSelectPvz={(pvz) => {
+                  if (advancing.current) return;
+                  advancing.current = true;
                   setState({
+                    // From the point itself: the carrier switch defaults to the first carrier
+                    // without writing it to state, so a customer who never touched it (and has
+                    // no saved preference) had no carrier - and the order API refuses that.
+                    deliveryCarrier: pvz.carrier,
                     deliveryPvzId: pvz.id,
                     deliveryPvzAddress: pvz.address,
                     deliveryCostEstimate: pvz.estimatedDeliveryCost ?? null,
+                    deliveryDaysEstimate: pvz.estimatedDeliveryDays ?? null,
                   });
                   // The PVZ list can be long - jump straight to the next step instead of leaving
                   // it sitting on screen waiting for a separate "Next" tap.

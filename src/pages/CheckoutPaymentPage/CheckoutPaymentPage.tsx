@@ -12,6 +12,12 @@ import { OrgCardTextarea } from '@/components/OrgCardTextarea/OrgCardTextarea.ts
 import { PolicyCheckbox } from '@/components/PolicyCheckbox/PolicyCheckbox.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
 import { useAcknowledgePriceChanges } from '@/hooks/useAcknowledgePriceChanges.ts';
+import type { DeliveryCarrier } from '@/api/types.ts';
+
+const CARRIER_LABELS: Record<DeliveryCarrier, string> = {
+  CDEK: 'Доставка СДЭК',
+  YANDEX: 'Доставка Яндекс Доставкой',
+};
 
 export const CheckoutPaymentPage: FC = () => {
   const { state, setState, reset } = useCheckout();
@@ -50,6 +56,17 @@ export const CheckoutPaymentPage: FC = () => {
   }, [user]);
 
   const hasPriceChanges = cart?.items.some((line) => line.priceChanged) ?? false;
+
+  // This page is only ever reached by going forward from the fulfillment step, so stepping back
+  // returns there with every choice still selected - and doesn't leave a duplicate entry that
+  // would make the system Back button bounce between the two steps.
+  const changeFulfillment = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/checkout/fulfillment', { replace: true });
+    }
+  };
 
   const canSubmit =
     Boolean(cart && cart.items.length > 0) &&
@@ -104,6 +121,32 @@ export const CheckoutPaymentPage: FC = () => {
           <p style={{ padding: '12px 16px', margin: 0 }}>
             Внимание, цена некоторых товаров изменилась с момента добавления их в корзину. Актуальная цена отображена на этой странице.
           </p>
+        )}
+        {state.fulfillmentType && (
+          <Section header="Способ получения">
+            <Cell
+              multiline
+              subtitle={
+                state.fulfillmentType === 'DELIVERY' ? state.deliveryPvzAddress : state.pickupAddressLabel
+              }
+              description={
+                state.fulfillmentType === 'DELIVERY' && state.deliveryDaysEstimate
+                  ? `Срок ${state.deliveryDaysEstimate}`
+                  : undefined
+              }
+              after={
+                <Button size="s" mode="bezeled" onClick={changeFulfillment}>
+                  Сменить
+                </Button>
+              }
+            >
+              {state.fulfillmentType === 'DELIVERY'
+                ? state.deliveryCarrier
+                  ? CARRIER_LABELS[state.deliveryCarrier]
+                  : 'Доставка'
+                : 'Самовывоз'}
+            </Cell>
+          </Section>
         )}
         {cart && cart.items.length > 0 && (
           <Section
