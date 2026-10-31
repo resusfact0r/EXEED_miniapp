@@ -233,11 +233,28 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # The entry page must be revalidated on every open (cheap: ETag -> 304). Without this,
+    # Telegram's WebView kept a stale index.html and loaded the previous bundle after deploys.
+    location = /index.html {
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # Bundles are content-hashed: a new build means new file names, so cache them for good.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }
 }
 ```
+
+**Кэширование.** Без `Cache-Control` у `index.html` Telegram WebView держал старую страницу,
+и после деплоя клиенты продолжали видеть прошлую версию (так было до 31.10.2026). Проверка:
+`curl -sI https://exeedbot.ru/ | grep -i cache-control` → `no-cache`; у файла из `/assets/` —
+`max-age=31536000, immutable`.
 
 ```bash
 rm -f /etc/nginx/sites-enabled/api.exeedbot.ru /etc/nginx/sites-available/api.exeedbot.ru
