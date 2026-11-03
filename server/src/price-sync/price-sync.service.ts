@@ -19,6 +19,19 @@ const IMAP_HOSTS: Array<[RegExp, string]> = [
   [/@(gmail|googlemail)\.com$/i, 'imap.gmail.com'],
 ];
 
+/** What the watchdog reads from GET /api/health/details. */
+export interface PriceSyncStatus {
+  enabled: boolean;
+  startedAt: string;
+  lastCheckOkAt: string | null;
+  lastFailureAt: string | null;
+  lastError: string | null;
+  consecutiveFailures: number;
+  /** Every email from the supplier in the lookback window, by subject - so a stale price list
+   *  can be explained ("only «МСК наличие» arrived, nothing matched the filter"). */
+  supplierMail: Array<{ subject: string; count: number; lastAt: string; matched: boolean }>;
+}
+
 interface Candidate {
   folder: string;
   uid: number;
@@ -38,8 +51,12 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(PriceSyncService.name);
   private timer?: NodeJS.Timeout;
   private running = false;
-  // A broken mailbox login would otherwise repeat the same alert every 10 minutes.
-  private mailboxFailing = false;
+  private readonly startedAt = new Date();
+  private lastCheckOkAt: Date | null = null;
+  private lastFailureAt: Date | null = null;
+  private lastError: string | null = null;
+  private consecutiveFailures = 0;
+  private supplierMail: PriceSyncStatus['supplierMail'] = [];
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -61,6 +78,18 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
     clearTimeout(this.timer);
   }
 
+  getStatus(): PriceSyncStatus {
+    return {
+      enabled: process.env.PRICE_SYNC_ENABLED === 'true',
+      startedAt: this.startedAt.toISOString(),
+      lastCheckOkAt: this.lastCheckOkAt?.toISOString() ?? null,
+      lastFailureAt: this.lastFailureAt?.toISOString() ?? null,
+      lastError: this.lastError,
+      consecutiveFailures: this.consecutiveFailures,
+      supplierMail: this.supplierMail,
+    };
+  }
+
   private tick(intervalMin: number) {
     void this.runOnce().finally(() => {
       this.timer = setTimeout(() => this.tick(intervalMin), intervalMin * 60_000);
@@ -78,17 +107,18 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
       client = this.createClient();
       await client.connect();
       await this.processNewMail(client, await this.resolveFolders(client));
-      if (this.mailboxFailing) {
-        this.mailboxFailing = false;
-        await this.report('✅ Доступ к почте с прайсом восстановлен.');
-      }
+      this.lastCheckOkAt = new Date();
+      this.consecutiveFailures = 0;
     } catch (err) {
-      const message = (err as Error & { responseText?: string }).responseText ?? (err as Error).message;
-      this.logger.error(`Price sync failed: ${message}`);
-      if (!this.mailboxFailing) {
-        this.mailboxFailing = true;
-        await this.report(`❌ Не удалось проверить почту с прайсом: ${message}\nЦены в каталоге не обновляются, пока это не исправлено.`);
-      }
+      // Gmail drops an IMAP connection now and then; one failed pass is retried in 10 minutes
+      // and isn't worth a message. The watchdog (deploy/watchdog) alerts if checks keep failing
+      // for an hour. imapflow often leaves `message` empty, so take whatever says the most.
+      const e = err as Error & { responseText?: string; code?: string };
+      const message = e.responseText || e.message || e.code || String(err);
+      this.lastFailureAt = new Date();
+      this.lastError = message;
+      this.consecutiveFailures++;
+      this.logger.error(`Price sync failed (${this.consecutiveFailures} in a row): ${message}`);
     } finally {
       this.running = false;
       await client?.logout().catch(() => client?.close());
@@ -113,13 +143,14 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
 
   private async processNewMail(client: ImapFlow, folders: string[]): Promise<void> {
     const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+    // Everything from the sender, filtered by subject here rather than in the IMAP query: the
+    // emails that don't match are what explains a stale price list.
     const query: Record<string, unknown> = { from: process.env.PRICE_MAIL_FROM, since };
-    if (process.env.PRICE_MAIL_SUBJECT) {
-      query.subject = process.env.PRICE_MAIL_SUBJECT;
-    }
+    const subjectFilter = process.env.PRICE_MAIL_SUBJECT?.toLowerCase();
 
     const candidates: Candidate[] = [];
     const seen = new Set<string>();
+    const bySubject = new Map<string, PriceSyncStatus['supplierMail'][number]>();
     for (const folder of folders) {
       await client.mailboxOpen(folder, { readOnly: true });
       const uids = (await client.search(query, { uid: true })) || [];
@@ -135,14 +166,23 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
           continue;
         }
         seen.add(messageId);
-        candidates.push({
-          folder,
-          uid: msg.uid,
-          messageId,
-          date: internalDate ?? (msg.envelope?.date ? new Date(msg.envelope.date) : new Date(0)),
-        });
+        const date = internalDate ?? (msg.envelope?.date ? new Date(msg.envelope.date) : new Date(0));
+        const subject = msg.envelope?.subject ?? '';
+        const matched = !subjectFilter || subject.toLowerCase().includes(subjectFilter);
+
+        // "Прайс … от 03.11.2026" -> one entry per mailing, not per day.
+        const key = subject.replace(/\s*от\s+\d{2}\.\d{2}\.\d{4}\s*$/, '').trim() || '(без темы)';
+        const entry = bySubject.get(key) ?? { subject: key, count: 0, lastAt: date.toISOString(), matched };
+        entry.count++;
+        if (date.toISOString() > entry.lastAt) entry.lastAt = date.toISOString();
+        bySubject.set(key, entry);
+
+        if (matched) {
+          candidates.push({ folder, uid: msg.uid, messageId, date });
+        }
       }
     }
+    this.supplierMail = [...bySubject.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt));
     if (candidates.length === 0) {
       return;
     }

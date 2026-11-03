@@ -1,0 +1,8 @@
+[Unit]
+Description=Watchdog for exeedbot.ru: alerts the owner about silent failures
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tg-miniapp-watchdog

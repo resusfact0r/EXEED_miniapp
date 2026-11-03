@@ -9,5 +9,6 @@ import { BotService } from './bot.service';
   imports: [OrdersModule],
   controllers: [BotController],
   providers: [BotService, BotPollingService],
+  exports: [BotPollingService],
 })
 export class BotModule {}

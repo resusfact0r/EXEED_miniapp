@@ -46,25 +46,46 @@ const HEADER_SEARCH_ROWS = 30;
 
 const fold = (v: unknown) => String(v ?? '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
 
-/** "1 234,56", "1234.56 р.", 1234.56 -> 1234.56; anything else -> NaN. */
+/**
+ * A number as suppliers write it: "1 234,56", "1234.56 р.", "18,636.32" (Excel's en-US display),
+ * "1.234,56", "19.00". When both a comma and a dot appear, the last one is the decimal point and
+ * the other groups thousands; a lone comma is decimal unless it splits groups of three digits
+ * ("1,234,567"); several dots only as groups of three ("1.234.567"). Anything else -> NaN, so a
+ * garbled cell is rejected rather than read as a wildly wrong price.
+ */
 export function parseNumber(value: unknown): number {
   if (typeof value === 'number') {
     return value;
   }
-  const cleaned = String(value ?? '')
-    .replace(/[\s  ]/g, '')
-    .replace(/(руб|р|₽)\.?$/i, '')
-    .replace(',', '.');
-  return cleaned === '' ? NaN : Number(cleaned);
+  let s = String(value ?? '')
+    .replace(/[\s\u00A0\u202F]/g, '')
+    .replace(/(руб|р|₽)\.?$/i, '');
+  if (s === '') {
+    return NaN;
+  }
+  const comma = s.lastIndexOf(',');
+  const dot = s.lastIndexOf('.');
+  if (comma >= 0 && dot >= 0) {
+    s = comma > dot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (comma >= 0) {
+    s = /^\d{1,3}(,\d{3})+$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
+  } else if (/^\d{1,3}(\.\d{3}){2,}$/.test(s)) {
+    s = s.replace(/\./g, '');
+  }
+  return /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
 
-/** "15", "15 шт", ">10", "10+" -> number; "есть", "под заказ", "" -> null (unknown, not zero). */
+/** "15", "15 шт", ">10", "10+", "1,019.00" -> number; "есть", "под заказ", "" -> null (unknown, not zero). */
 export function parseStock(value: unknown): number | null {
   if (typeof value === 'number') {
     return Math.max(0, Math.floor(value));
   }
-  const match = String(value ?? '').replace(/[\s ]/g, '').match(/^[><=~]*(\d+)/);
-  return match ? Number(match[1]) : null;
+  const match = String(value ?? '').replace(/[\s\u00A0\u202F]/g, '').match(/^[><=~]*(\d[\d.,]*)/);
+  if (!match) {
+    return null;
+  }
+  const n = parseNumber(match[1].replace(/[.,]$/, ''));
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null;
 }
 
 function findColumns(header: unknown[]): Partial<Record<Field, number>> {

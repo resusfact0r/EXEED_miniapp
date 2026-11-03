@@ -27,6 +27,10 @@ export class BotPollingService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(BotPollingService.name);
   private offset = 0;
   private stopped = false;
+  /** Last time Telegram answered a getUpdates - the watchdog's sign that the bot (and the proxy
+   *  it depends on) is alive. Stays null while polling is disabled. */
+  private lastOkAt: Date | null = null;
+  private readonly startedAt = new Date();
 
   constructor(private readonly botService: BotService) {}
 
@@ -41,6 +45,14 @@ export class BotPollingService implements OnModuleInit, OnApplicationShutdown {
 
   onApplicationShutdown() {
     this.stopped = true;
+  }
+
+  getStatus() {
+    return {
+      enabled: process.env.TELEGRAM_BOT_POLLING === 'true',
+      startedAt: this.startedAt.toISOString(),
+      lastOkAt: this.lastOkAt?.toISOString() ?? null,
+    };
   }
 
   private async loop(): Promise<void> {
@@ -58,6 +70,7 @@ export class BotPollingService implements OnModuleInit, OnApplicationShutdown {
         await this.sleep(RETRY_DELAY_MS);
         continue;
       }
+      this.lastOkAt = new Date();
 
       for (const update of response.result) {
         this.offset = update.update_id + 1;
