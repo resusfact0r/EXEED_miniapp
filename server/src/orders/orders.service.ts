@@ -265,9 +265,14 @@ export class OrdersService {
     });
   }
 
-  /** Operator flow from the bot (/paid): the money has arrived. */
-  async markPaid(orderNumber: number) {
-    return this.operatorTransition(orderNumber, AWAITING_PAYMENT_FROM, 'PAID');
+  /**
+   * Operator flow from the bot (/paid): the money has arrived. `deliveryCost` is for an order paid
+   * without /pay - a legal entity paying an invoice has no link to send.
+   */
+  async markPaid(orderNumber: number, deliveryCost: Prisma.Decimal | null = null) {
+    return this.operatorTransition(orderNumber, AWAITING_PAYMENT_FROM, 'PAID', {
+      data: deliveryCost === null ? undefined : { deliveryCost },
+    });
   }
 
   /** /work: ordered from the supplier. */

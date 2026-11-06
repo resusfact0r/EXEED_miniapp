@@ -5,7 +5,7 @@ import { Prisma, type Order, type User } from '@prisma/client';
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { callTelegram } from './telegram-api';
+import { callTelegram, type TelegramApiResult } from './telegram-api';
 
 // Statuses that are waiting on the operator, not on the customer or the warehouse.
 const NEEDS_OPERATOR: Array<'NEW' | 'AWAITING_PAYMENT_LINK'> = ['NEW', 'AWAITING_PAYMENT_LINK'];
@@ -26,6 +26,16 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const CARRIER_LABELS: Record<string, string> = { CDEK: 'СДЭК', YANDEX: 'Яндекс.Доставку' };
+
+// /pay and /paid take the delivery cost alone, and it's easy to type the order total there out of
+// habit - the customer would then be asked to pay nearly double. A cost this large relative to
+// the goods has to be confirmed. Below the floor it's ordinary delivery of a cheap part.
+const DELIVERY_CONFIRM_SHARE = 0.5;
+const DELIVERY_CONFIRM_FLOOR = 1000;
+const CONFIRM_WORD = 'да';
+
+// Statuses in which the order can still be marked paid.
+const UNPAID_STATUSES = ['NEW', 'AWAITING_PAYMENT_LINK', 'AWAITING_PAYMENT'];
 
 // Statuses in which the customer has already paid - cancelling then means refunding.
 const PAID_STATUSES = ['PAID', 'IN_PROGRESS', 'READY_FOR_PICKUP'];
@@ -146,14 +156,10 @@ export class BotService {
       return;
     }
 
-    let deliveryCost: Prisma.Decimal | null = null;
-    if (costArg !== undefined) {
-      const parsed = Number(costArg.replace(',', '.'));
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        await this.reply(chatId, `«${costArg}» не похоже на стоимость доставки. Пример: /pay ${orderNumber} 450 https://…`);
-        return;
-      }
-      deliveryCost = new Prisma.Decimal(parsed.toFixed(2));
+    const deliveryCost = costArg === undefined ? null : this.parseDeliveryCost(costArg);
+    if (costArg !== undefined && deliveryCost === null) {
+      await this.reply(chatId, `«${costArg}» не похоже на стоимость доставки. Пример: /pay ${orderNumber} 450 https://…`);
+      return;
     }
 
     const order = await this.prisma.order.findUnique({ where: { orderNumber } });
@@ -166,6 +172,10 @@ export class BotService {
     }
     if (order?.fulfillmentType === 'PICKUP' && deliveryCost !== null) {
       await this.reply(chatId, `Заказ №${orderNumber} — самовывоз, доставку указывать не нужно:\n/pay ${orderNumber} ${link}`);
+      return;
+    }
+    if (order && deliveryCost !== null && args[3] !== CONFIRM_WORD && this.looksLikeOrderTotal(deliveryCost, order)) {
+      await this.reply(chatId, this.deliveryCostWarning(order, deliveryCost, `/pay ${orderNumber} ${costArg} ${link} ${CONFIRM_WORD}`));
       return;
     }
 
@@ -184,17 +194,73 @@ export class BotService {
     }));
   }
 
-  /** "/paid 12" - the money has arrived. */
+  /**
+   * "/paid 12" - the money has arrived. A delivery order paid without /pay (a legal entity's
+   * invoice) has no delivery cost yet: "/paid 12 450" records it, so the order's total is right.
+   */
   private async handlePaid(chatId: number, args: string[]): Promise<void> {
-    const orderNumber = await this.orderNumberArg(chatId, args, '/paid <номер заказа>\nНапример: /paid 12');
+    const orderNumber = await this.orderNumberArg(
+      chatId,
+      args,
+      '/paid <номер заказа>\n/paid <номер заказа> <доставка, ₽> — если оплата пришла без /pay\nНапример: /paid 12',
+    );
     if (orderNumber === null) {
       return;
     }
-    const result = await this.orders.markPaid(orderNumber);
+    const costArg = args[1];
+    const deliveryCost = costArg === undefined ? null : this.parseDeliveryCost(costArg);
+    if (costArg !== undefined && deliveryCost === null) {
+      await this.reply(chatId, `«${costArg}» не похоже на стоимость доставки. Пример: /paid ${orderNumber} 450`);
+      return;
+    }
+
+    const order = await this.prisma.order.findUnique({ where: { orderNumber } });
+    // Orders past this point get the usual "not available in this status" answer below.
+    if (order && UNPAID_STATUSES.includes(order.status)) {
+      if (order.fulfillmentType === 'PICKUP' && deliveryCost !== null) {
+        await this.reply(chatId, `Заказ №${orderNumber} — самовывоз, доставку указывать не нужно:\n/paid ${orderNumber}`);
+        return;
+      }
+      if (order.fulfillmentType === 'DELIVERY' && deliveryCost === null && order.deliveryCost === null) {
+        await this.reply(
+          chatId,
+          `Заказ №${orderNumber} с доставкой, а её стоимость не указана, поэтому сумма заказа неполная.\n` +
+            `Выставить оплату: /pay ${orderNumber} <доставка, ₽> <ссылка>\n` +
+            `Если деньги уже пришли: /paid ${orderNumber} <доставка, ₽> (0, если бесплатно)`,
+        );
+        return;
+      }
+      if (deliveryCost !== null && args[2] !== CONFIRM_WORD && this.looksLikeOrderTotal(deliveryCost, order)) {
+        await this.reply(chatId, this.deliveryCostWarning(order, deliveryCost, `/paid ${orderNumber} ${costArg} ${CONFIRM_WORD}`));
+        return;
+      }
+    }
+
+    const result = await this.orders.markPaid(orderNumber, deliveryCost);
     await this.afterTransition(chatId, orderNumber, result, (o) => ({
       customer: { text: `Оплата заказа №${o.orderNumber} получена. Спасибо! Сообщим, когда заказ будет готов.` },
-      operator: `отмечен оплаченным. Дальше: /work ${o.orderNumber}, когда закажете у поставщика`,
+      operator: `отмечен оплаченным (${this.amountBreakdown(o)}). Дальше: /work ${o.orderNumber}, когда закажете у поставщика`,
     }));
+  }
+
+  /** "450", "450,50" -> the cost; anything else -> null. */
+  private parseDeliveryCost(value: string): Prisma.Decimal | null {
+    const parsed = Number(value.replace(',', '.'));
+    return Number.isFinite(parsed) && parsed >= 0 ? new Prisma.Decimal(parsed.toFixed(2)) : null;
+  }
+
+  private looksLikeOrderTotal(deliveryCost: Prisma.Decimal, order: Order): boolean {
+    return deliveryCost.gte(DELIVERY_CONFIRM_FLOOR) && deliveryCost.gte(order.totalAmount.mul(DELIVERY_CONFIRM_SHARE));
+  }
+
+  private deliveryCostWarning(order: Order, deliveryCost: Prisma.Decimal, confirmCommand: string): string {
+    const total = order.totalAmount.add(deliveryCost);
+    return (
+      `⚠️ Заказ №${order.orderNumber}: доставка ${this.money(deliveryCost)} при товарах на ${this.money(order.totalAmount)}, ` +
+      `всего выйдет ${this.money(total)}.\n` +
+      'Здесь указывается только стоимость доставки, а не сумма заказа. Ничего не записано.\n' +
+      `Если всё верно, отправьте:\n${confirmCommand}`
+    );
   }
 
   /** "/work 12" - ordered from the supplier. */
@@ -321,29 +387,35 @@ export class BotService {
     const order = result.order;
     const { customer, operator } = build(order, result.previousStatus);
     const { extraButtons, reply_markup, ...message } = customer;
-    const delivered = await this.notifyCustomer(order, {
+    const delivery = await this.notifyCustomer(order, {
       ...message,
       reply_markup: reply_markup ?? {
         inline_keyboard: [...(extraButtons ?? []), [{ text: 'Открыть заказ', web_app: { url: this.orderUrl(order) } }]],
       },
     });
-    await this.reply(chatId, `Заказ №${order.orderNumber}: ${operator}.\n` + this.deliveryReport(order, delivered));
+    await this.reply(chatId, `Заказ №${order.orderNumber}: ${operator}.\n` + this.deliveryReport(order, delivery));
   }
 
   /**
    * A bot can only write to someone who has opened a chat with it. A customer who reached the
    * Mini App some other way never did, and Telegram answers 403 - the operator then has to call.
    */
-  private async notifyCustomer(order: Order & { user: User }, message: Record<string, unknown>): Promise<boolean> {
-    const result = await callTelegram('sendMessage', { chat_id: order.user.telegramId.toString(), ...message });
-    return Boolean(result?.ok);
+  private notifyCustomer(order: Order & { user: User }, message: Record<string, unknown>) {
+    return callTelegram('sendMessage', { chat_id: order.user.telegramId.toString(), ...message });
   }
 
-  private deliveryReport(order: Order & { user: User }, delivered: boolean): string {
-    if (delivered) {
+  private deliveryReport(order: Order & { user: User }, delivery: TelegramApiResult<unknown> | null): string {
+    if (delivery?.ok) {
       return 'Клиенту отправлено сообщение.';
     }
-    return `⚠️ Написать клиенту не удалось — он не запускал бота. Свяжитесь по телефону: ${order.user.phone ?? 'не указан'}.`;
+    const call = `Свяжитесь по телефону: ${order.user.phone ?? 'не указан'}.`;
+    if (!delivery) {
+      return `⚠️ Сообщение клиенту не ушло: нет связи с Telegram. ${call}`;
+    }
+    if (delivery.error_code === 403) {
+      return `⚠️ Написать клиенту не удалось — он не запускал бота или заблокировал его. ${call}`;
+    }
+    return `⚠️ Telegram не принял сообщение клиенту: ${delivery.description ?? 'без описания'}. ${call}`;
   }
 
   private transitionError(orderNumber: number, failure: TransitionFailure): string {
@@ -496,6 +568,7 @@ export class BotService {
         '/pay <номер> <ссылка> — выставить оплату (самовывоз)',
         '/pay <номер> <доставка, ₽> <ссылка> — выставить оплату с доставкой',
         '/paid <номер> — оплата получена',
+        '/paid <номер> <доставка, ₽> — оплата пришла без /pay (счёт юрлицу)',
         '/work <номер> — заказали у поставщика',
         '/ready <номер> — самовывоз: готов к выдаче',
         '/ship <номер> <трек> — доставка: отправлен',

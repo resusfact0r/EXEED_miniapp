@@ -30,11 +30,19 @@ export interface TelegramApiResult<T> {
   ok: boolean;
   result?: T;
   description?: string;
+  error_code?: number;
 }
 
+// The proxy drops a few dozen requests a day. A sendMessage lost to that is an operator who never
+// hears about an order, so transport failures are retried. A retry after a lost response can
+// deliver a message twice, which beats not delivering it.
+const RETRY_DELAYS_MS = [2000, 5000, 15000];
+
 /**
- * Calls a Bot API method. Returns null (and logs) on transport failure, so callers can treat
- * "Telegram unreachable" the same as "call failed" without try/catch at every site.
+ * Calls a Bot API method. Returns null (and logs) if Telegram stayed unreachable through the
+ * retries, so callers can treat that as "call failed" without try/catch at every site. An answer
+ * from Telegram, even a refusal, is returned as is. getUpdates isn't retried here: the polling
+ * loop is its own retry.
  */
 export async function callTelegram<T>(
   method: string,
@@ -47,6 +55,26 @@ export async function callTelegram<T>(
     return null;
   }
 
+  let result = await requestOnce<T>(token, method, payload, timeoutMs);
+  if (method === 'getUpdates') {
+    return result;
+  }
+  for (const delay of RETRY_DELAYS_MS) {
+    if (result) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    result = await requestOnce<T>(token, method, payload, timeoutMs);
+  }
+  return result;
+}
+
+async function requestOnce<T>(
+  token: string,
+  method: string,
+  payload: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<TelegramApiResult<T> | null> {
   try {
     const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: 'POST',
