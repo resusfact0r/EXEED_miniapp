@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Order, type User } from '@prisma/client';
 
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
+import { getSeller } from '../legal/seller';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { callTelegram, type TelegramApiResult } from './telegram-api';
@@ -78,6 +79,8 @@ export class BotService {
         return this.sendStartMessage(chatId);
       case '/help':
         return this.sendHelp(chatId);
+      case '/about':
+        return this.sendAbout(chatId);
       case '/id':
         // Lets an operator find the chat id to put in ORDER_NOTIFY_CHAT_IDS without digging
         // through logs or the database.
@@ -290,7 +293,10 @@ export class BotService {
       const address = PICKUP_ADDRESSES.find((a) => a.code === o.pickupAddressCode);
       const lines = [`Заказ №${o.orderNumber} готов к выдаче.`];
       if (address) {
-        lines.push(`Адрес: ${address.label}`, `Часы работы: ${address.schedule}`);
+        lines.push(`Адрес: ${address.label}`);
+      }
+      if (address?.schedule) {
+        lines.push(`Часы работы: ${address.schedule}`);
       }
       return {
         customer: { text: lines.join('\n') },
@@ -554,8 +560,31 @@ export class BotService {
     });
   }
 
+  private async sendAbout(chatId: number): Promise<void> {
+    const seller = getSeller();
+    if (!seller) {
+      await this.reply(chatId, 'Сведения о продавце скоро появятся здесь.');
+      return;
+    }
+    const base = `${process.env.MINIAPP_URL ?? 'https://exeedbot.ru'}/api/legal`;
+    const lines = [
+      `Продавец: ${seller.name}`,
+      `ОГРН ${seller.ogrn}, ИНН ${seller.inn}`,
+      `Адрес: ${seller.address}`,
+      `Почта: ${seller.email}`,
+      ...(seller.phone ? [`Телефон: ${seller.phone}`] : []),
+      '',
+      `Условия покупки и возврата: ${base}/terms`,
+      `Обработка персональных данных: ${base}/privacy`,
+    ];
+    await this.reply(chatId, lines.join('\n'));
+  }
+
   private async sendHelp(chatId: number): Promise<void> {
     const lines = ['Команды:', '', '/start — открыть каталог запчастей', '/help — эта справка'];
+    if (getSeller()) {
+      lines.push('/about — о продавце и документы');
+    }
 
     if (this.isOperator(chatId)) {
       lines.push(

@@ -2,7 +2,9 @@ import { Button, Placeholder, Section } from '@telegram-apps/telegram-ui';
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { ConsentCheckbox } from '@/components/ConsentCheckbox/ConsentCheckbox.tsx';
 import { useAuth } from '@/contexts/AuthContext.tsx';
+import { useConsent } from '@/hooks/useConsent.ts';
 import { useRequestPhone } from '@/hooks/useRequestPhone.ts';
 
 const BRANDS = ['CHERY', 'EXEED', 'OMODA', 'JAECOO'];
@@ -14,6 +16,13 @@ export const WelcomePage: FC = () => {
     setUser(user);
     navigate('/catalog', { replace: true });
   });
+  const consent = useConsent();
+
+  const sharePhone = async () => {
+    if (await consent.accept()) {
+      await request();
+    }
+  };
 
   return (
     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -46,11 +55,12 @@ export const WelcomePage: FC = () => {
           </div>
         </div>
       </Section>
+      {consent.needed && <ConsentCheckbox checked={consent.checked} onChange={consent.setChecked} />}
       <Placeholder
         header="Начнём с номера телефона"
-        description={error ?? 'Он нужен, чтобы мы могли связаться с вами по заказу.'}
+        description={error ?? consent.error ?? 'Он нужен, чтобы мы могли связаться с вами по заказу.'}
         action={
-          <Button size="l" loading={loading} onClick={() => void request()}>
+          <Button size="l" loading={loading} disabled={!consent.canProceed} onClick={() => void sharePhone()}>
             Поделиться номером
           </Button>
         }

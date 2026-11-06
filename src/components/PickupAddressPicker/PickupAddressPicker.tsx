@@ -13,7 +13,14 @@ export const PickupAddressPicker: FC<PickupAddressPickerProps> = ({ selected, on
   const [addresses, setAddresses] = useState<PickupAddress[] | null>(null);
 
   useEffect(() => {
-    void getPickupAddresses().then(setAddresses);
+    void getPickupAddresses().then((list) => {
+      setAddresses(list);
+      // With a single address there is nothing to choose.
+      if (list.length === 1 && selected !== list[0].code) {
+        onSelect(list[0]);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!addresses) {

@@ -11,6 +11,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { OrdersModule } from './orders/orders.module';
 import { PriceSyncModule } from './price-sync/price-sync.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
+import { LegalModule } from './legal/legal.module';
 
 @Controller('health')
 class HealthController {
@@ -35,6 +36,7 @@ class HealthController {
     OrdersModule,
     PriceSyncModule,
     MonitoringModule,
+    LegalModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

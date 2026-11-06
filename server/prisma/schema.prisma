@@ -49,6 +49,8 @@ model User {
   firstName   String?
   lastName    String?
   phone       String?
+  /// When the customer accepted the personal data consent (/api/legal/consent).
+  pdConsentAt DateTime?
   firstSeenAt DateTime   @default(now())
   lastSeenAt  DateTime   @updatedAt
   cartItems   CartItem[]

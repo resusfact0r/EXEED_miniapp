@@ -11,6 +11,7 @@ import { FulfillmentType, OrderStatus, PaymentMethod, Prisma, type User } from '
 
 import { PrismaService } from '../prisma/prisma.service';
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
+import { getSeller } from '../legal/seller';
 import { AvtoligaService, AvtoligaUnavailableError } from '../avtoliga/avtoliga.service';
 import type { LivePrice } from '../avtoliga/types';
 import { normalizeLineQty } from '../cart/line-quantity';
@@ -44,6 +45,16 @@ export class OrdersService {
     // Mini App asks for the number first, but the API must not depend on that.
     if (!user.phone) {
       throw new BadRequestException('Чтобы оформить заказ, поделитесь номером телефона в профиле.');
+    }
+    if (getSeller() && !user.pdConsentAt) {
+      throw new BadRequestException('Чтобы оформить заказ, примите согласие на обработку персональных данных.');
+    }
+    // A Mini App opened before a pickup point was removed can still send its code.
+    if (
+      dto.fulfillmentType === FulfillmentType.PICKUP &&
+      !PICKUP_ADDRESSES.some((a) => a.code === dto.pickupAddressCode)
+    ) {
+      throw new BadRequestException('Этого адреса самовывоза больше нет. Выберите способ получения заново.');
     }
 
     const cartItems = await this.prisma.cartItem.findMany({

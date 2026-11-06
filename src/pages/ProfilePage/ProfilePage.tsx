@@ -1,17 +1,24 @@
 import { Button, Cell, List, Placeholder, Section, SegmentedControl, Spinner } from '@telegram-apps/telegram-ui';
+import { openLink } from '@telegram-apps/sdk-react';
 import { useEffect, useState, type FC } from 'react';
 
 import { patchPreferences } from '@/api/auth.ts';
+import { legalUrl } from '@/api/legal.ts';
 import { getCarriers } from '@/api/delivery.ts';
 import type { Carrier, DeliveryCarrier, FulfillmentType, PaymentMethod } from '@/api/types.ts';
 import { useAuth } from '@/contexts/AuthContext.tsx';
+import { useConsent } from '@/hooks/useConsent.ts';
+import { useLegal } from '@/hooks/useLegal.ts';
 import { useRequestPhone } from '@/hooks/useRequestPhone.ts';
+import { ConsentCheckbox } from '@/components/ConsentCheckbox/ConsentCheckbox.tsx';
 import { Page } from '@/components/Page.tsx';
 import { Link } from '@/components/Link/Link.tsx';
 
 export const ProfilePage: FC = () => {
   const { user, loading, error, setUser } = useAuth();
   const { request, loading: requesting, error: requestError } = useRequestPhone(setUser);
+  const consent = useConsent();
+  const seller = useLegal()?.seller;
   const [savingPrefs, setSavingPrefs] = useState(false);
   // Same source as checkout, so the profile never offers a carrier the order flow won't show.
   const [carriers, setCarriers] = useState<Carrier[]>([]);
@@ -50,6 +57,12 @@ export const ProfilePage: FC = () => {
     );
   }
 
+  const sharePhone = async () => {
+    if (await consent.accept()) {
+      await request();
+    }
+  };
+
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Без имени';
 
   return (
@@ -61,9 +74,11 @@ export const ProfilePage: FC = () => {
           <Cell subtitle="Телефон">{user.phone ?? 'Не указан'}</Cell>
         </Section>
 
-        <Section footer={requestError ?? undefined}>
+        {consent.needed && <ConsentCheckbox checked={consent.checked} onChange={consent.setChecked} />}
+
+        <Section footer={requestError ?? consent.error ?? undefined}>
           <div style={{ padding: 16 }}>
-            <Button size="l" stretched loading={requesting} onClick={() => void request()}>
+            <Button size="l" stretched loading={requesting} disabled={!consent.canProceed} onClick={() => void sharePhone()}>
               {user.hasPhone ? 'Изменить номер телефона' : 'Поделиться номером телефона'}
             </Button>
           </div>
@@ -129,6 +144,20 @@ export const ProfilePage: FC = () => {
             <Cell subtitle="История и статусы ваших заказов">Мои заказы</Cell>
           </Link>
         </Section>
+
+        {seller && (
+          <Section header="О продавце">
+            <Cell multiline subtitle={`ОГРН ${seller.ogrn}, ИНН ${seller.inn}`}>
+              {seller.name}
+            </Cell>
+            <Cell multiline subtitle="Адрес">
+              {seller.address}
+            </Cell>
+            <Cell subtitle="Контакты">{[seller.email, seller.phone].filter(Boolean).join(', ')}</Cell>
+            <Cell onClick={() => openLink(legalUrl('terms'))}>Условия покупки и возврата</Cell>
+            <Cell onClick={() => openLink(legalUrl('privacy'))}>Политика обработки данных</Cell>
+          </Section>
+        )}
       </List>
     </Page>
   );

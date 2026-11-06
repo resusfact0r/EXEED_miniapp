@@ -6,6 +6,7 @@ export interface UserProfile {
   lastName: string | null;
   phone: string | null;
   hasPhone: boolean;
+  hasConsent: boolean;
   preferredFulfillmentType: FulfillmentType | null;
   preferredDeliveryCarrier: DeliveryCarrier | null;
   preferredPaymentMethod: PaymentMethod | null;
@@ -55,9 +56,9 @@ export interface Cart {
 }
 
 export interface PickupAddress {
-  code: 'ADDRESS_1' | 'ADDRESS_2';
+  code: 'ADDRESS_1';
   label: string;
-  schedule: string;
+  schedule?: string;
 }
 
 export interface Pvz {

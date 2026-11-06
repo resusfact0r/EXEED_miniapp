@@ -20,6 +20,10 @@ export class AuthService {
     });
   }
 
+  acceptConsent(user: User): Promise<User> {
+    return this.prisma.user.update({ where: { id: user.id }, data: { pdConsentAt: new Date() } });
+  }
+
   updatePreferences(user: User, dto: UpdatePreferencesDto): Promise<User> {
     return this.prisma.user.update({
       where: { id: user.id },

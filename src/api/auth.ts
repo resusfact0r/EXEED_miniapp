@@ -6,6 +6,8 @@ export const postSession = () => apiClient.post<UserProfile>('/auth/session');
 export const postPhone = (contact: RequestedContactPayload) =>
   apiClient.post<UserProfile>('/auth/phone', { contact });
 
+export const postConsent = () => apiClient.post<UserProfile>('/auth/consent');
+
 export const getMe = () => apiClient.get<UserProfile>('/auth/me');
 
 export const patchPreferences = (payload: UpdatePreferencesPayload) =>

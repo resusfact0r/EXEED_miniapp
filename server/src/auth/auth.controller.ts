@@ -17,6 +17,7 @@ function toProfile(user: User) {
     lastName: user.lastName,
     phone: user.phone,
     hasPhone: Boolean(user.phone),
+    hasConsent: Boolean(user.pdConsentAt),
     preferredFulfillmentType: user.preferredFulfillmentType,
     preferredDeliveryCarrier: user.preferredDeliveryCarrier,
     preferredPaymentMethod: user.preferredPaymentMethod,
@@ -38,6 +39,11 @@ export class AuthController {
   async submitPhone(@CurrentUser() user: User, @Body() dto: SubmitContactDto) {
     const updated = await this.authService.savePhoneFromContact(user, dto);
     return toProfile(updated);
+  }
+
+  @Post('consent')
+  async acceptConsent(@CurrentUser() user: User) {
+    return toProfile(await this.authService.acceptConsent(user));
   }
 
   @Get('me')
