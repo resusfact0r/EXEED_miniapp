@@ -115,9 +115,10 @@ def notify_operators(text: str) -> None:
 # ---------------------------------------------------------------- helpers
 
 def get_json(path: str):
-    # No proxy for localhost, whatever the environment says.
+    # No proxy for localhost, whatever the environment says. The details include a call to the
+    # supplier's API, which can take 15 s.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    with opener.open(BACKEND + path, timeout=10) as resp:
+    with opener.open(BACKEND + path, timeout=30) as resp:
         return json.loads(resp.read())
 
 
@@ -209,6 +210,15 @@ def check_price_stale(details):
     return False, "\n".join(lines)
 
 
+def check_supplier(details):
+    # Without the supplier's answer no order can be placed. Night hours are skipped: the API has
+    # been seen answering empty around midnight, and nobody should be woken for that.
+    if not 8 <= NOW.astimezone(MSK).hour < 23:
+        return None
+    supplier = details["supplier"]
+    return supplier["ok"], f"Автолига не отвечает ({supplier['error']}) — заказы не оформляются, клиенты видят просьбу попробовать позже"
+
+
 def check_backup():
     dumps = sorted(BACKUP_DIR.glob("tg-miniapp_*.dump"), key=lambda p: p.stat().st_mtime)
     if not dumps:
@@ -248,6 +258,8 @@ CHECKS = {
     "bot_polling": ("Бот", 1),
     "mail": ("Почта с прайсом", 1),
     "price_stale": ("Прайс", 1),
+    # 30 minutes of failed checks: a short hiccup costs nothing, the customer can retry.
+    "supplier": ("Поставщик", 6),
     "backup": ("Бэкап", 1),
     "disk": ("Диск", 1),
     "cert": ("Сертификат", 1),
@@ -275,6 +287,7 @@ def main() -> int:
         results["bot_polling"] = check_bot_polling(details) if telegram_ok else None
         results["mail"] = check_mail(details)
         results["price_stale"] = check_price_stale(details)
+        results["supplier"] = check_supplier(details)
 
     for key, result in results.items():
         if result is None:

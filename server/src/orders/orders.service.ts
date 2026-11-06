@@ -78,7 +78,7 @@ export class OrdersService {
       if (err instanceof AvtoligaUnavailableError) {
         this.logger.error(`Avtoliga unavailable while creating order: ${err.message}`);
         throw new ServiceUnavailableException(
-          'Не удалось подтвердить актуальную цену у поставщика. Попробуйте оформить заказ ещё раз через пару минут.',
+          'Не удалось подтвердить актуальную цену у поставщика, поэтому заказ не оформлен. Корзина сохранена — попробуйте ещё раз позже.',
         );
       }
       throw err;
@@ -320,6 +320,49 @@ export class OrdersService {
       'CANCELLED',
       { data: { cancelReason: reason }, note: reason ?? undefined },
     );
+  }
+
+  /**
+   * The order's price was fixed when it was placed, but the parts are bought later. Compares it
+   * with what the supplier says now, so the operator hears about a price rise or a sold-out part
+   * before taking the money or buying. Empty `problems` means the order still adds up.
+   */
+  async checkAgainstSupplier(orderNumber: number): Promise<{ reachable: boolean; problems: string[] }> {
+    const items = await this.prisma.orderItem.findMany({ where: { order: { orderNumber } } });
+    let live: Map<string, LivePrice>;
+    try {
+      live = await this.avtoliga.getLivePrices(
+        items.map((i) => i.productCode),
+        Object.fromEntries(items.map((i) => [i.productCode, i.quantity])),
+      );
+    } catch (err) {
+      if (err instanceof AvtoligaUnavailableError) {
+        return { reachable: false, problems: [] };
+      }
+      throw err;
+    }
+
+    const problems: string[] = [];
+    for (const item of items) {
+      const entry = live.get(item.productCode);
+      if (!entry) {
+        problems.push(`${item.productCode}: у поставщика больше нет`);
+        continue;
+      }
+      if (entry.stockQty < item.quantity) {
+        problems.push(`${item.productCode}: у поставщика ${entry.stockQty} шт., в заказе ${item.quantity}`);
+      }
+      if (new Prisma.Decimal(entry.price).gt(item.unitPrice)) {
+        const margin = item.unitPrice.sub(entry.cost);
+        const result = margin.lte(0)
+          ? `УБЫТОК ${money(margin.abs().mul(item.quantity))}`
+          : `прибыль ${money(margin.mul(item.quantity))}`;
+        problems.push(
+          `${item.productCode}: закупка теперь ${money(entry.cost)}, в заказе продаём по ${money(item.unitPrice)} × ${item.quantity} — ${result}`,
+        );
+      }
+    }
+    return { reachable: true, problems };
   }
 
   /** Everything the operator's /order card shows. */

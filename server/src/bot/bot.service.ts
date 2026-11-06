@@ -139,8 +139,10 @@ export class BotService {
     if (orderNumber === null) {
       return;
     }
-    const link = args.length >= 3 ? args[2] : args[1];
-    const costArg = args.length >= 3 ? args[1] : undefined;
+    const confirmed = args[args.length - 1] === CONFIRM_WORD;
+    const rest = confirmed ? args.slice(0, -1) : args;
+    const link = rest.length >= 3 ? rest[2] : rest[1];
+    const costArg = rest.length >= 3 ? rest[1] : undefined;
     if (!link) {
       await this.reply(chatId, `Формат:\n${usage}`);
       return;
@@ -177,9 +179,19 @@ export class BotService {
       await this.reply(chatId, `Заказ №${orderNumber} — самовывоз, доставку указывать не нужно:\n/pay ${orderNumber} ${link}`);
       return;
     }
-    if (order && deliveryCost !== null && args[3] !== CONFIRM_WORD && this.looksLikeOrderTotal(deliveryCost, order)) {
-      await this.reply(chatId, this.deliveryCostWarning(order, deliveryCost, `/pay ${orderNumber} ${costArg} ${link} ${CONFIRM_WORD}`));
-      return;
+    // The last moment before taking the customer's money: anything that could cost us stops here.
+    if (order && UNPAID_STATUSES.includes(order.status) && !confirmed) {
+      const warnings = [
+        ...(deliveryCost !== null && this.looksLikeOrderTotal(deliveryCost, order)
+          ? [this.deliveryCostWarning(order, deliveryCost)]
+          : []),
+        ...(await this.supplierWarnings(orderNumber)),
+      ];
+      if (warnings.length > 0) {
+        const command = ['/pay', orderNumber, costArg, link, CONFIRM_WORD].filter((part) => part !== undefined).join(' ');
+        await this.reply(chatId, this.confirmPrompt(orderNumber, 'ссылка не отправлена', warnings, command));
+        return;
+      }
     }
 
     const result = await this.orders.issuePaymentLink(orderNumber, url.toString(), deliveryCost);
@@ -210,7 +222,8 @@ export class BotService {
     if (orderNumber === null) {
       return;
     }
-    const costArg = args[1];
+    const confirmed = args[args.length - 1] === CONFIRM_WORD;
+    const costArg = (confirmed ? args.slice(0, -1) : args)[1];
     const deliveryCost = costArg === undefined ? null : this.parseDeliveryCost(costArg);
     if (costArg !== undefined && deliveryCost === null) {
       await this.reply(chatId, `«${costArg}» не похоже на стоимость доставки. Пример: /paid ${orderNumber} 450`);
@@ -218,6 +231,7 @@ export class BotService {
     }
 
     const order = await this.prisma.order.findUnique({ where: { orderNumber } });
+    let beforeBuying: string[] = [];
     // Orders past this point get the usual "not available in this status" answer below.
     if (order && UNPAID_STATUSES.includes(order.status)) {
       if (order.fulfillmentType === 'PICKUP' && deliveryCost !== null) {
@@ -233,16 +247,23 @@ export class BotService {
         );
         return;
       }
-      if (deliveryCost !== null && args[2] !== CONFIRM_WORD && this.looksLikeOrderTotal(deliveryCost, order)) {
-        await this.reply(chatId, this.deliveryCostWarning(order, deliveryCost, `/paid ${orderNumber} ${costArg} ${CONFIRM_WORD}`));
+      if (deliveryCost !== null && !confirmed && this.looksLikeOrderTotal(deliveryCost, order)) {
+        await this.reply(
+          chatId,
+          this.confirmPrompt(orderNumber, 'ничего не записано', [this.deliveryCostWarning(order, deliveryCost)], `/paid ${orderNumber} ${costArg} ${CONFIRM_WORD}`),
+        );
         return;
       }
+      // The money is in, so this doesn't stop anything: it's what to know before buying the parts.
+      beforeBuying = await this.supplierWarnings(orderNumber);
     }
 
     const result = await this.orders.markPaid(orderNumber, deliveryCost);
     await this.afterTransition(chatId, orderNumber, result, (o) => ({
       customer: { text: `Оплата заказа №${o.orderNumber} получена. Спасибо! Сообщим, когда заказ будет готов.` },
-      operator: `отмечен оплаченным (${this.amountBreakdown(o)}). Дальше: /work ${o.orderNumber}, когда закажете у поставщика`,
+      operator:
+        `отмечен оплаченным (${this.amountBreakdown(o)}). Дальше: /work ${o.orderNumber}, когда закажете у поставщика` +
+        (beforeBuying.length > 0 ? `.\n⚠️ Перед закупкой:\n${beforeBuying.join('\n')}` : ''),
     }));
   }
 
@@ -256,14 +277,25 @@ export class BotService {
     return deliveryCost.gte(DELIVERY_CONFIRM_FLOOR) && deliveryCost.gte(order.totalAmount.mul(DELIVERY_CONFIRM_SHARE));
   }
 
-  private deliveryCostWarning(order: Order, deliveryCost: Prisma.Decimal, confirmCommand: string): string {
+  private deliveryCostWarning(order: Order, deliveryCost: Prisma.Decimal): string {
     const total = order.totalAmount.add(deliveryCost);
     return (
-      `⚠️ Заказ №${order.orderNumber}: доставка ${this.money(deliveryCost)} при товарах на ${this.money(order.totalAmount)}, ` +
-      `всего выйдет ${this.money(total)}.\n` +
-      'Здесь указывается только стоимость доставки, а не сумма заказа. Ничего не записано.\n' +
-      `Если всё верно, отправьте:\n${confirmCommand}`
+      `• Доставка ${this.money(deliveryCost)} при товарах на ${this.money(order.totalAmount)}, всего выйдет ${this.money(total)}. ` +
+      'Здесь указывается только стоимость доставки, а не сумма заказа.'
     );
+  }
+
+  /** What's changed at the supplier since the order was placed; empty if it still adds up. */
+  private async supplierWarnings(orderNumber: number): Promise<string[]> {
+    const { reachable, problems } = await this.orders.checkAgainstSupplier(orderNumber);
+    if (!reachable) {
+      return ['• Автолига сейчас не отвечает: цену и наличие проверить не удалось.'];
+    }
+    return problems.map((problem) => `• ${problem}`);
+  }
+
+  private confirmPrompt(orderNumber: number, outcome: string, warnings: string[], command: string): string {
+    return [`⚠️ Заказ №${orderNumber}: ${outcome}.`, ...warnings, '', `Если всё верно, отправьте:\n${command}`].join('\n');
   }
 
   /** "/work 12" - ordered from the supplier. */

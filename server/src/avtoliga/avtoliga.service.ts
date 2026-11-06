@@ -69,6 +69,13 @@ export class AvtoligaService {
       throw new AvtoligaUnavailableError(data.Message ?? 'Avtoliga returned an error status');
     }
 
+    // A real answer accounts for every code, as found or as undefined. Status 1 with both lists
+    // empty means the supplier's side has nothing to say right now (seen around midnight Moscow
+    // time) - that's "can't verify", not "out of stock", and must not be shown as the latter.
+    if (codes.length > 0 && !data.SpareParts?.length && !data.UndefinedSpareParts?.length) {
+      throw new AvtoligaUnavailableError('Avtoliga returned an empty answer');
+    }
+
     return data.SpareParts ?? [];
   }
 
@@ -91,6 +98,7 @@ export class AvtoligaService {
       for (const store of part.Prices) {
         const candidate: LivePrice = {
           price: applyMarkup(store.Price),
+          cost: store.Price,
           stockQty: store.Count,
           packQty: Math.max(1, store.InPackage || 1),
         };

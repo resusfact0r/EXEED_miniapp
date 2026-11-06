@@ -1,6 +1,7 @@
 import { Controller, ForbiddenException, Get, Req } from '@nestjs/common';
 import type { Request } from 'express';
 
+import { AvtoligaService } from '../avtoliga/avtoliga.service';
 import { BotPollingService } from '../bot/bot-polling.service';
 import { PriceSyncService } from '../price-sync/price-sync.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,7 +21,24 @@ export class MonitoringController {
     private readonly prisma: PrismaService,
     private readonly botPolling: BotPollingService,
     private readonly priceSync: PriceSyncService,
+    private readonly avtoliga: AvtoligaService,
   ) {}
+
+  /** Orders can't be placed while the supplier doesn't answer, so that's checked on real stock. */
+  private async supplierStatus() {
+    const sample = await this.prisma.product.findMany({
+      where: { isActive: true, stockQty: { gt: 0 } },
+      orderBy: { code: 'asc' },
+      take: 5,
+      select: { code: true },
+    });
+    try {
+      const live = await this.avtoliga.getLivePrices(sample.map((p) => p.code));
+      return { ok: live.size > 0, error: live.size > 0 ? null : 'ни одна из проверочных позиций не найдена' };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
 
   @Get('details')
   async details(@Req() req: Request) {
@@ -55,6 +73,7 @@ export class MonitoringController {
 
     return {
       now: new Date().toISOString(),
+      supplier: await this.supplierStatus(),
       bot: this.botPolling.getStatus(),
       priceSync: { ...this.priceSync.getStatus(), filter: process.env.PRICE_MAIL_SUBJECT ?? null },
       prices: { lastApplied, lastImport, activeProducts },
