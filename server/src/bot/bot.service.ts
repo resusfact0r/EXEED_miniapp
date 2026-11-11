@@ -92,7 +92,7 @@ export class BotService {
       return;
     }
 
-    // "/pay@exeed_friends_bot 12 https://..." is how commands arrive from a group chat; a deep
+    // "/pay@e_PartsBot 12 https://..." is how commands arrive from a group chat; a deep
     // link arrives as "/start <payload>".
     const [rawCommand, ...args] = text.split(/\s+/);
     const command = rawCommand.split('@')[0];
