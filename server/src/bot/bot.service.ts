@@ -6,6 +6,7 @@ import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
 import { getSeller } from '../legal/seller';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PartLookupService } from './part-lookup.service';
 import { callTelegram, type TelegramApiResult } from './telegram-api';
 
 // Statuses that are waiting on the operator, not on the customer or the warehouse.
@@ -53,30 +54,71 @@ type TransitionResult =
 export class BotService {
   private readonly logger = new Logger(BotService.name);
 
+  private username?: Promise<string | null>;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
+    private readonly parts: PartLookupService,
   ) {}
+
+  /** The bot's own @username, to spot mentions of it. Asked once; a failed ask is retried later. */
+  private getUsername(): Promise<string | null> {
+    if (!this.username) {
+      this.username = callTelegram<{ username?: string }>('getMe', {}).then((r) => {
+        const name = r?.ok ? (r.result?.username ?? null) : null;
+        if (!name) this.username = undefined;
+        return name;
+      });
+    }
+    return this.username;
+  }
 
   // Typed as a loose Record rather than a strict Update interface: this is Telegram's payload,
   // not ours, and NestJS's global ValidationPipe (whitelist + forbidNonWhitelisted) would reject
   // fields we don't declare if this were a class-validator DTO - easier to just read defensively.
   async handleUpdate(update: Record<string, unknown>): Promise<void> {
-    const message = update.message as { text?: string; chat?: { id?: number } } | undefined;
+    const message = update.message as
+      | {
+          message_id?: number;
+          text?: string;
+          chat?: { id?: number; type?: string };
+          reply_to_message?: { from?: { username?: string } };
+        }
+      | undefined;
     const text = message?.text?.trim();
     const chatId = message?.chat?.id;
     if (!chatId || !text) {
       return;
     }
 
-    // "/pay@exeed_friends_bot 12 https://..." is how commands arrive from a group chat; Telegram
-    // also appends a deep-link payload as "/start <payload>", which we don't use yet.
+    // "/pay@exeed_friends_bot 12 https://..." is how commands arrive from a group chat; a deep
+    // link arrives as "/start <payload>".
     const [rawCommand, ...args] = text.split(/\s+/);
     const command = rawCommand.split('@')[0];
+    const isPrivate = message?.chat?.type === 'private';
+
+    if (!text.startsWith('/')) {
+      // A part question: tagging the bot in a group, replying to its message, or just writing to
+      // it directly. A group in privacy mode doesn't pass plain mentions to bots - there /part
+      // works, or the owner disables privacy in BotFather (see DEPLOYMENT-VPS.md).
+      const username = (await this.getUsername())?.toLowerCase();
+      const mentioned = Boolean(username && text.toLowerCase().includes(`@${username}`));
+      const repliedToBot = Boolean(username && message?.reply_to_message?.from?.username?.toLowerCase() === username);
+      if (isPrivate || mentioned || repliedToBot) {
+        await this.answerPartQuestion(chatId, message?.message_id, text, isPrivate);
+      }
+      return;
+    }
 
     switch (command) {
       case '/start':
+        if (args[0]?.startsWith('p_')) {
+          return this.sendProductLink(chatId, args[0].slice(2));
+        }
         return this.sendStartMessage(chatId);
+      case '/part':
+        return this.answerPartQuestion(chatId, message?.message_id, args.join(' '), isPrivate);
       case '/help':
         return this.sendHelp(chatId);
       case '/about':
@@ -113,6 +155,66 @@ export class BotService {
       return;
     }
     await handler(chatId, args);
+  }
+
+  /** Price and stock for the articles in `text`, as a reply to the asking message. */
+  private async answerPartQuestion(chatId: number, messageId: number | undefined, text: string, isPrivate: boolean) {
+    const replyTo = messageId ? { reply_parameters: { message_id: messageId, allow_sending_without_reply: true } } : {};
+    const articles = PartLookupService.extractArticles(text);
+    if (articles.length === 0) {
+      await callTelegram('sendMessage', {
+        chat_id: chatId,
+        text: 'Пришлите артикул, например: /part 501014147AA — подскажу цену и наличие. Можно несколько через пробел.',
+        ...replyTo,
+      });
+      return;
+    }
+
+    let card;
+    try {
+      card = await this.parts.describe(articles);
+    } catch (err) {
+      this.logger.error(`Part lookup failed for ${articles.join(', ')}: ${(err as Error).message}`);
+      await callTelegram('sendMessage', { chat_id: chatId, text: 'Не получилось проверить артикул, попробуйте чуть позже.', ...replyTo });
+      return;
+    }
+
+    // A Mini App button only works in a private chat; in a group the button opens the private
+    // chat with the bot, which then offers the product (see sendProductLink).
+    const username = await this.getUsername();
+    const buttons = card.orderable.map((p) =>
+      isPrivate
+        ? [{ text: `Открыть ${p.code}`, web_app: { url: this.productUrl(p.id) } }]
+        : username
+          ? [{ text: `Заказать ${p.code}`, url: `https://t.me/${username}?start=p_${p.id}` }]
+          : null,
+    ).filter(Boolean);
+
+    await callTelegram('sendMessage', {
+      chat_id: chatId,
+      text: card.text,
+      disable_web_page_preview: true,
+      ...replyTo,
+      ...(buttons.length > 0 ? { reply_markup: { inline_keyboard: buttons } } : {}),
+    });
+  }
+
+  /** "Заказать" from a group lands here, in the private chat, where the Mini App can open. */
+  private async sendProductLink(chatId: number, productId: string) {
+    const product = await this.prisma.product.findUnique({ where: { id: productId } });
+    if (!product || !product.isActive) {
+      await this.sendStartMessage(chatId);
+      return;
+    }
+    await callTelegram('sendMessage', {
+      chat_id: chatId,
+      text: `🔧 ${product.code} — ${product.name}`,
+      reply_markup: { inline_keyboard: [[{ text: 'Открыть в каталоге', web_app: { url: this.productUrl(product.id) } }]] },
+    });
+  }
+
+  private productUrl(productId: string): string {
+    return `${process.env.MINIAPP_URL ?? 'https://exeedbot.ru'}/#/product/${productId}`;
   }
 
   private reply(chatId: number, text: string) {
@@ -613,7 +715,15 @@ export class BotService {
   }
 
   private async sendHelp(chatId: number): Promise<void> {
-    const lines = ['Команды:', '', '/start — открыть каталог запчастей', '/help — эта справка'];
+    const lines = [
+      'Команды:',
+      '',
+      '/start — открыть каталог запчастей',
+      '/part <артикул> — цена и наличие (можно несколько через пробел)',
+      '/help — эта справка',
+      '',
+      'Можно просто написать артикул сюда, а в группе — отметить бота: @бот 501014147AA.',
+    ];
     if (getSeller()) {
       lines.push('/about — о продавце и документы');
     }
