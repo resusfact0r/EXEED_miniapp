@@ -46,12 +46,6 @@ interface CdekDeliveryPoint {
   };
 }
 
-interface CdekCity {
-  code: number;
-  city: string;
-  region?: string;
-}
-
 @Injectable()
 export class CdekService {
   private readonly logger = new Logger(CdekService.name);
@@ -71,18 +65,20 @@ export class CdekService {
     try {
       const token = await this.getAccessToken();
       const baseUrl = process.env.CDEK_API_BASE_URL ?? 'https://api.cdek.ru';
-      const url = new URL('/v2/location/cities', baseUrl);
-      url.searchParams.set('country_codes', 'RU');
-      url.searchParams.set('city', query);
-      url.searchParams.set('size', '20');
+      // The suggest endpoint matches the start of a name ("Новоива" -> Новоивановское); the plain
+      // /v2/location/cities?city= only matches whole names, so nothing showed until the customer
+      // had typed the town in full.
+      const url = new URL('/v2/location/suggest/cities', baseUrl);
+      url.searchParams.set('country_code', 'RU');
+      url.searchParams.set('name', query.trim());
 
       const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) {
         throw new Error(`CDEK API responded with ${response.status}`);
       }
 
-      const data: CdekCity[] = await response.json();
-      return data.map((c) => ({ code: c.code, name: c.city, region: c.region }));
+      const data: Array<{ code: number; full_name: string }> = await response.json();
+      return data.map((c) => parseSuggestion(c.code, c.full_name));
     } catch (err) {
       this.logger.error(`Failed to fetch CDEK cities, falling back to empty list: ${(err as Error).message}`);
       return [];
@@ -220,4 +216,16 @@ export class CdekService {
     };
     return this.tokenCache.token;
   }
+}
+
+/**
+ * "Новоивановское, Одинцовский городской округ, Московская область, Россия" -> name, area, region.
+ * "Москва, Россия" -> name and region both "Москва", as the old cities endpoint returned it.
+ */
+function parseSuggestion(code: number, fullName: string): NormalizedCity {
+  const parts = fullName.split(', ').filter((part) => part && part !== 'Россия');
+  const [name, ...rest] = parts;
+  const region = rest.length > 0 ? rest[rest.length - 1] : name;
+  const area = rest.length > 1 ? rest.slice(0, -1).join(', ') : undefined;
+  return { code, name: name ?? fullName, region, ...(area ? { area } : {}) };
 }

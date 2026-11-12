@@ -91,6 +91,7 @@ export interface City {
   code: number;
   name: string;
   region?: string;
+  area?: string;
 }
 
 export type FulfillmentType = 'PICKUP' | 'DELIVERY';

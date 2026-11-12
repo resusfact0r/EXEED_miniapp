@@ -147,13 +147,15 @@ export const ProfilePage: FC = () => {
 
         {seller && (
           <Section header="О продавце">
-            <Cell multiline subtitle={`ОГРН ${seller.ogrn}, ИНН ${seller.inn}`}>
+            <Cell multiline subtitle={`${seller.ogrnLabel} ${seller.ogrn}, ИНН ${seller.inn}`}>
               {seller.name}
             </Cell>
             <Cell multiline subtitle="Адрес">
               {seller.address}
             </Cell>
-            <Cell subtitle="Контакты">{[seller.email, seller.phone].filter(Boolean).join(', ')}</Cell>
+            <Cell multiline subtitle="Связь">
+              {[seller.contact, seller.phone].filter(Boolean).join(', ')}
+            </Cell>
             <Cell onClick={() => openLink(legalUrl('terms'))}>Условия покупки и возврата</Cell>
             <Cell onClick={() => openLink(legalUrl('privacy'))}>Политика обработки данных</Cell>
           </Section>

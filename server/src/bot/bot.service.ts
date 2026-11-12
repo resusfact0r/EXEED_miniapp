@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Order, type User } from '@prisma/client';
 
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
-import { getSeller } from '../legal/seller';
+import { getSeller, isSoleTrader } from '../legal/seller';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PartLookupService } from './part-lookup.service';
@@ -743,10 +743,11 @@ export class BotService {
     const base = `${process.env.MINIAPP_URL ?? 'https://exeedbot.ru'}/api/legal`;
     const lines = [
       `Продавец: ${seller.name}`,
-      `ОГРН ${seller.ogrn}, ИНН ${seller.inn}`,
+      `${isSoleTrader(seller) ? 'ОГРНИП' : 'ОГРН'} ${seller.ogrn}, ИНН ${seller.inn}`,
       `Адрес: ${seller.address}`,
-      `Почта: ${seller.email}`,
+      ...(seller.email ? [`Почта: ${seller.email}`] : []),
       ...(seller.phone ? [`Телефон: ${seller.phone}`] : []),
+      'Вопросы, возвраты и запросы по персональным данным — пишите сюда, в этот чат.',
       '',
       `Условия покупки и возврата: ${base}/terms`,
       `Обработка персональных данных: ${base}/privacy`,

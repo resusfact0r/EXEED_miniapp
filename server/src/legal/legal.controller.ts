@@ -1,24 +1,32 @@
 import { Controller, Get, Header, NotFoundException, Param } from '@nestjs/common';
 
+import { getBotUsername } from '../bot/telegram-api';
 import { DOCUMENTS, renderDocument, type DocumentName } from './documents';
-import { getSeller } from './seller';
+import { contactLine, getSeller, isSoleTrader } from './seller';
 
 /** Public on purpose: a privacy policy has to be readable without a Telegram session. */
 @Controller('legal')
 export class LegalController {
   @Get()
-  info() {
+  async info() {
     const seller = getSeller();
-    return { configured: Boolean(seller), seller };
+    if (!seller) {
+      return { configured: false, seller: null };
+    }
+    const { bank: _bank, ...shown } = seller;
+    return {
+      configured: true,
+      seller: { ...shown, ogrnLabel: isSoleTrader(seller) ? 'ОГРНИП' : 'ОГРН', contact: contactLine(seller, await getBotUsername()) },
+    };
   }
 
   @Get(':document')
   @Header('Content-Type', 'text/html; charset=utf-8')
-  document(@Param('document') document: string) {
+  async document(@Param('document') document: string) {
     const seller = getSeller();
     if (!seller || !DOCUMENTS.includes(document as DocumentName)) {
       throw new NotFoundException();
     }
-    return renderDocument(document as DocumentName, seller);
+    return renderDocument(document as DocumentName, seller, await getBotUsername());
   }
 }

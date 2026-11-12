@@ -3,20 +3,42 @@ export interface Seller {
   ogrn: string;
   inn: string;
   address: string;
-  email: string;
+  email?: string;
   phone?: string;
+  /** Bank details for the terms of sale ("р/с … в АО «ТБанк», БИК …"). */
+  bank?: string;
 }
 
 /**
- * The seller's details, from SELLER_* in .env. Null until all the required ones are set: while
- * null, the documents, the "О продавце" block and the personal data consent stay switched off,
+ * The seller's details, from SELLER_* in .env. Null until name, OGRN(IP), INN and address are
+ * set: while null, the documents, the "О продавце" block and the personal data consent stay off,
  * because a policy or a consent that names no one is worthless. Filling .env and restarting the
- * backend turns them all on.
+ * backend turns them all on. Email is optional - without it, requests go through the bot chat.
  */
 export function getSeller(): Seller | null {
-  const { SELLER_NAME: name, SELLER_OGRN: ogrn, SELLER_INN: inn, SELLER_ADDRESS: address, SELLER_EMAIL: email } = process.env;
-  if (!name || !ogrn || !inn || !address || !email) {
+  const { SELLER_NAME: name, SELLER_OGRN: ogrn, SELLER_INN: inn, SELLER_ADDRESS: address } = process.env;
+  if (!name || !ogrn || !inn || !address) {
     return null;
   }
-  return { name, ogrn, inn, address, email, phone: process.env.SELLER_PHONE || undefined };
+  return {
+    name,
+    ogrn,
+    inn,
+    address,
+    email: process.env.SELLER_EMAIL || undefined,
+    phone: process.env.SELLER_PHONE || undefined,
+    bank: process.env.SELLER_BANK || undefined,
+  };
+}
+
+/** An individual entrepreneur has an ОГРНИП rather than an ОГРН. */
+export function isSoleTrader(seller: Seller): boolean {
+  // Not \b: in JavaScript it only knows Latin letters, so it never matches after "ИП".
+  return /^(ип|индивидуальный предприниматель)(\s|$)/i.test(seller.name.trim());
+}
+
+/** Where customers send requests: the email if there is one, otherwise the bot chat. */
+export function contactLine(seller: Seller, botUsername: string | null): string {
+  const bot = botUsername ? `чат с ботом @${botUsername}` : 'чат с ботом магазина в Telegram';
+  return seller.email ? `электронная почта ${seller.email} или ${bot}` : bot;
 }

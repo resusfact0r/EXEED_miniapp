@@ -28,4 +28,7 @@ export interface NormalizedCity {
   code: number;
   name: string;
   region?: string;
+  /** District between the settlement and the region ("Одинцовский городской округ"), to tell
+   *  namesakes apart in the list. */
+  area?: string;
 }

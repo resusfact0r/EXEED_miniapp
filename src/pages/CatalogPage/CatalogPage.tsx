@@ -1,13 +1,22 @@
 import { Button, Input, List, Placeholder, Section, Spinner } from '@telegram-apps/telegram-ui';
-import { useEffect, useState, type FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { searchProducts } from '@/api/catalog.ts';
 import type { Product } from '@/api/types.ts';
 import { Page } from '@/components/Page.tsx';
 import { ProductCard } from '@/components/ProductCard/ProductCard.tsx';
 
+const SCROLL_KEY = 'catalog-scroll';
+
 export const CatalogPage: FC = () => {
-  const [query, setQuery] = useState('');
+  // The query lives in the URL (#/catalog?q=заглушка), so "Назад" from a product brings the
+  // search back instead of an empty catalog. replace: typing doesn't pile up history entries.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get('q') ?? '';
+  const setQuery = (value: string) => setSearchParams(value ? { q: value } : {}, { replace: true });
+  // Where the list was scrolled for this query, to return there after the results reload.
+  const restoreScroll = useRef<number | null>(readScroll(query));
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [page, setPage] = useState(1);
@@ -26,6 +35,9 @@ export const CatalogPage: FC = () => {
           setTotal(result.total);
           setPage(1);
           setError(null);
+          const y = restoreScroll.current;
+          restoreScroll.current = null;
+          if (y) requestAnimationFrame(() => window.scrollTo(0, y));
         })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
@@ -44,6 +56,17 @@ export const CatalogPage: FC = () => {
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoadingMore(false));
   };
+
+  // Remember the scroll position when leaving for a product.
+  useEffect(() => {
+    return () => {
+      try {
+        sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ query, y: window.scrollY }));
+      } catch {
+        // storage unavailable: just don't restore
+      }
+    };
+  }, [query]);
 
   const hasMore = total !== null && items.length < total;
 
@@ -85,3 +108,12 @@ export const CatalogPage: FC = () => {
     </Page>
   );
 };
+
+function readScroll(query: string): number | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SCROLL_KEY) ?? 'null') as { query: string; y: number } | null;
+    return saved && saved.query === query ? saved.y : null;
+  } catch {
+    return null;
+  }
+}

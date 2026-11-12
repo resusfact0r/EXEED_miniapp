@@ -1,8 +1,11 @@
-import { Button, Placeholder, Section } from '@telegram-apps/telegram-ui';
+import { Button, Cell, Placeholder, Section } from '@telegram-apps/telegram-ui';
+import { openLink } from '@telegram-apps/sdk-react';
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { legalUrl } from '@/api/legal.ts';
 import { ConsentCheckbox } from '@/components/ConsentCheckbox/ConsentCheckbox.tsx';
+import { useLegal } from '@/hooks/useLegal.ts';
 import { useAuth } from '@/contexts/AuthContext.tsx';
 import { useConsent } from '@/hooks/useConsent.ts';
 import { useRequestPhone } from '@/hooks/useRequestPhone.ts';
@@ -17,6 +20,7 @@ export const WelcomePage: FC = () => {
     navigate('/catalog', { replace: true });
   });
   const consent = useConsent();
+  const seller = useLegal()?.seller;
 
   const sharePhone = async () => {
     if (await consent.accept()) {
@@ -55,6 +59,19 @@ export const WelcomePage: FC = () => {
           </div>
         </div>
       </Section>
+      {seller && (
+        <Section header="Продавец">
+          <Cell multiline subtitle={`${seller.ogrnLabel} ${seller.ogrn}, ИНН ${seller.inn}`}>
+            {seller.name}
+          </Cell>
+          <Cell subtitle="Откроется в браузере" onClick={() => openLink(legalUrl('terms'))}>
+            Условия продажи и возврата
+          </Cell>
+          <Cell subtitle="Откроется в браузере" onClick={() => openLink(legalUrl('privacy'))}>
+            Политика обработки персональных данных
+          </Cell>
+        </Section>
+      )}
       {consent.needed && <ConsentCheckbox checked={consent.checked} onChange={consent.setChecked} />}
       <Placeholder
         header="Начнём с номера телефона"

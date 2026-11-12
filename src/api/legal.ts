@@ -3,10 +3,14 @@ import { apiClient } from '@/api/client.ts';
 export interface Seller {
   name: string;
   ogrn: string;
+  /** "ОГРНИП" for an individual entrepreneur, "ОГРН" for a company. */
+  ogrnLabel: string;
   inn: string;
   address: string;
-  email: string;
+  email?: string;
   phone?: string;
+  /** Where to send requests: email or the bot chat. */
+  contact: string;
 }
 
 export interface LegalInfo {
