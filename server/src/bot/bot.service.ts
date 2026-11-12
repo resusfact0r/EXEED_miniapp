@@ -4,6 +4,7 @@ import { Prisma, type Order, type User } from '@prisma/client';
 
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
 import { getSeller, isSoleTrader } from '../legal/seller';
+import { getSupportUsername, supportLink } from '../legal/support';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PartLookupService } from './part-lookup.service';
@@ -729,9 +730,18 @@ export class BotService {
       chat_id: chatId,
       text: 'Запчасти CHERY, EXEED, OMODA и JAECOO — подбор по артикулу прямо здесь, в Telegram.',
       reply_markup: {
-        inline_keyboard: [[{ text: 'Открыть каталог', web_app: { url: miniAppUrl } }]],
+        inline_keyboard: [
+          [{ text: 'Открыть каталог', web_app: { url: miniAppUrl } }],
+          ...this.supportButtonRow(),
+        ],
       },
     });
+  }
+
+  /** A "Написать менеджеру" button row, when a support person is configured. */
+  private supportButtonRow(): Array<Array<{ text: string; url: string }>> {
+    const support = getSupportUsername();
+    return support ? [[{ text: 'Написать менеджеру', url: supportLink(support) }]] : [];
   }
 
   private async sendAbout(chatId: number): Promise<void> {
@@ -747,7 +757,9 @@ export class BotService {
       `Адрес: ${seller.address}`,
       ...(seller.email ? [`Почта: ${seller.email}`] : []),
       ...(seller.phone ? [`Телефон: ${seller.phone}`] : []),
-      'Вопросы, возвраты и запросы по персональным данным — пишите сюда, в этот чат.',
+      getSupportUsername()
+        ? `Вопросы, возвраты и запросы по персональным данным — менеджеру @${getSupportUsername()}.`
+        : 'Вопросы, возвраты и запросы по персональным данным — пишите сюда, в этот чат.',
       '',
       `Условия покупки и возврата: ${base}/terms`,
       `Обработка персональных данных: ${base}/privacy`,
@@ -764,6 +776,7 @@ export class BotService {
       '/help — эта справка',
       '',
       'Можно просто написать артикул сюда, а в группе — отметить бота: @бот 501014147AA.',
+      ...(getSupportUsername() ? ['', `Живой человек, вопросы по заказу: @${getSupportUsername()}`] : []),
     ];
     if (getSeller()) {
       lines.push('/about — о продавце и документы');

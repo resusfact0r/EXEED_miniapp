@@ -17,6 +17,8 @@ export interface LegalInfo {
   /** False until the seller's details are set on the server: no documents, no consent step. */
   configured: boolean;
   seller: Seller | null;
+  /** Telegram username of the person customers can write to, or null. */
+  support: string | null;
 }
 
 export type LegalDocument = 'privacy' | 'consent' | 'terms';

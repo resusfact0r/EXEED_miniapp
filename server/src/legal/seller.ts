@@ -1,3 +1,5 @@
+import { getSupportUsername } from './support';
+
 export interface Seller {
   name: string;
   ogrn: string;
@@ -37,8 +39,16 @@ export function isSoleTrader(seller: Seller): boolean {
   return /^(ип|индивидуальный предприниматель)(\s|$)/i.test(seller.name.trim());
 }
 
-/** Where customers send requests: the email if there is one, otherwise the bot chat. */
+/**
+ * Where customers send requests: the support person in Telegram, plus email if there is one.
+ * Not the bot chat when there's a person: nobody reads what customers write to the bot.
+ */
 export function contactLine(seller: Seller, botUsername: string | null): string {
-  const bot = botUsername ? `чат с ботом @${botUsername}` : 'чат с ботом магазина в Telegram';
-  return seller.email ? `электронная почта ${seller.email} или ${bot}` : bot;
+  const support = getSupportUsername();
+  const telegram = support
+    ? `Telegram @${support}`
+    : botUsername
+      ? `чат с ботом @${botUsername}`
+      : 'чат с ботом магазина в Telegram';
+  return seller.email ? `электронная почта ${seller.email} или ${telegram}` : telegram;
 }

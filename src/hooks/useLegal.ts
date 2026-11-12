@@ -10,7 +10,7 @@ export function useLegal(): LegalInfo | null {
   useEffect(() => {
     getLegal()
       .then(setLegal)
-      .catch(() => setLegal({ configured: false, seller: null }));
+      .catch(() => setLegal({ configured: false, seller: null, support: null }));
   }, []);
 
   return legal;

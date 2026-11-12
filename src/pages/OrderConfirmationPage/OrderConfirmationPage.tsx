@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getOrder } from '@/api/orders.ts';
 import type { Order } from '@/api/types.ts';
 import { Page } from '@/components/Page.tsx';
+import { SupportButton } from '@/components/SupportLink/SupportLink.tsx';
 import { formatPrice } from '@/helpers/formatPrice.ts';
 
 export const OrderConfirmationPage: FC = () => {
@@ -46,9 +47,12 @@ export const OrderConfirmationPage: FC = () => {
             : `Сумма: ${formatPrice(order.totalAmount)}. Пришлём ссылку на оплату в этот чат.`
         }
         action={
-          <Button size="l" onClick={() => navigate('/catalog')}>
-            Вернуться в каталог
-          </Button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+            <Button size="l" onClick={() => navigate('/catalog')}>
+              Вернуться в каталог
+            </Button>
+            <SupportButton />
+          </div>
         }
       />
     </Page>

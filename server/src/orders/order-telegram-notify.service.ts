@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Order, OrderItem, User } from '@prisma/client';
 
 import { callTelegram } from '../bot/telegram-api';
+import { getSupportUsername } from '../legal/support';
 
 const FULFILLMENT_LABELS: Record<string, string> = {
   PICKUP: 'Самовывоз',
@@ -64,6 +65,10 @@ export class OrderTelegramNotifyService {
         ? '⏳ Оператор проверит наличие и пришлёт сюда подтверждение заказа, а счёт — на ваши реквизиты. Пока ничего оплачивать не нужно.'
         : '⏳ Оператор проверит наличие и пришлёт сюда подтверждение заказа со ссылкой на оплату. Пока ничего оплачивать не нужно.',
     );
+    const support = getSupportUsername();
+    if (support) {
+      lines.push(`Вопросы по заказу: @${support}`);
+    }
 
     const text = this.fitTelegramLimit(lines.join('\n'), order.orderNumber);
     const result = await callTelegram('sendMessage', {

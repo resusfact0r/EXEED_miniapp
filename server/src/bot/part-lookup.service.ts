@@ -3,6 +3,7 @@ import type { Product } from '@prisma/client';
 
 import { AvtoligaService, AvtoligaUnavailableError } from '../avtoliga/avtoliga.service';
 import type { LivePrice } from '../avtoliga/types';
+import { getSupportUsername } from '../legal/support';
 import { PrismaService } from '../prisma/prisma.service';
 
 const MAX_ARTICLES = 5;
@@ -135,6 +136,10 @@ export class PartLookupService {
     const lines = [`❓ ${code} — не нашли ни в каталоге, ни у поставщика.`];
     if (similar.length > 0) {
       lines.push('Похожие артикулы:', ...similar.map((p) => `• ${p.code} — ${p.name}`));
+    }
+    const support = getSupportUsername();
+    if (support) {
+      lines.push(`Поможет подобрать менеджер: @${support}`);
     }
     return lines.join('\n');
   }

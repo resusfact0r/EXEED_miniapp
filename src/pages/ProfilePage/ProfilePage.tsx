@@ -11,6 +11,7 @@ import { useConsent } from '@/hooks/useConsent.ts';
 import { useLegal } from '@/hooks/useLegal.ts';
 import { useRequestPhone } from '@/hooks/useRequestPhone.ts';
 import { ConsentCheckbox } from '@/components/ConsentCheckbox/ConsentCheckbox.tsx';
+import { SupportCell } from '@/components/SupportLink/SupportLink.tsx';
 import { Page } from '@/components/Page.tsx';
 import { Link } from '@/components/Link/Link.tsx';
 
@@ -144,6 +145,8 @@ export const ProfilePage: FC = () => {
             <Cell subtitle="История и статусы ваших заказов">Мои заказы</Cell>
           </Link>
         </Section>
+
+        <SupportCell />
 
         {seller && (
           <Section header="О продавце">
