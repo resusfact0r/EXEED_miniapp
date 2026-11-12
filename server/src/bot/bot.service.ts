@@ -339,7 +339,7 @@ export class BotService {
     const result = await this.orders.issuePaymentLink(orderNumber, url.toString(), deliveryCost);
     await this.afterTransition(chatId, orderNumber, result, (o) => ({
       customer: {
-        text: `Заказ №${o.orderNumber} ждёт оплаты: ${this.amountBreakdown(o)}.`,
+        text: `✅ Заказ №${o.orderNumber} подтверждён и ждёт оплаты: ${this.amountBreakdown(o)}.`,
         reply_markup: {
           inline_keyboard: [
             [{ text: 'Оплатить', url: url.toString() }],

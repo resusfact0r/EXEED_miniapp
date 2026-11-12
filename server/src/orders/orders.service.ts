@@ -175,6 +175,9 @@ export class OrdersService {
     void this.telegramNotify
       .notify({ ...order, user })
       .catch((err) => this.logger.warn(`Failed to push order #${order.orderNumber} to Telegram: ${(err as Error).message}`));
+    void this.telegramNotify
+      .notifyCustomer(order, user)
+      .catch((err) => this.logger.warn(`Failed to send order #${order.orderNumber} to the customer: ${(err as Error).message}`));
 
     return order;
   }
