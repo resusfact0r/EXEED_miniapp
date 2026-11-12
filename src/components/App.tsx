@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext.tsx';
 import { CartProvider } from '@/contexts/CartContext.tsx';
 import { CheckoutProvider } from '@/contexts/CheckoutContext.tsx';
 import { AppTabbar } from '@/components/AppTabbar/AppTabbar.tsx';
+import { SessionRejected } from '@/components/SessionRejected/SessionRejected.tsx';
 
 export function App() {
   const lp = useMemo(() => retrieveLaunchParams(), []);
@@ -29,6 +30,7 @@ export function App() {
                 </Routes>
               </div>
               <AppTabbar />
+              <SessionRejected />
             </CheckoutProvider>
           </CartProvider>
         </AuthProvider>

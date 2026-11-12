@@ -1,5 +1,7 @@
 import { retrieveRawInitData } from '@telegram-apps/sdk-react';
 
+import { SESSION_REJECTED_EVENT } from '@/helpers/launchFreshness.ts';
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
 export class ApiError extends Error {
@@ -25,6 +27,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ message: response.statusText }));
+    // The session itself was refused: every other request will fail the same way.
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent(SESSION_REJECTED_EVENT, { detail: body.message ?? response.statusText }));
+    }
     throw new ApiError(response.status, body.message ?? response.statusText);
   }
 

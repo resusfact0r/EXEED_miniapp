@@ -1,6 +1,9 @@
 // Include Telegram UI styles first to allow our code override the package CSS.
 import '@telegram-apps/telegram-ui/dist/styles.css';
 
+// First, before the router or the SDK touch the URL: whether this launch came with fresh data.
+import '@/helpers/launchFreshness.ts';
+
 import ReactDOM from 'react-dom/client';
 import { StrictMode } from 'react';
 import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
