@@ -9,6 +9,7 @@ import { CartProvider } from '@/contexts/CartContext.tsx';
 import { CheckoutProvider } from '@/contexts/CheckoutContext.tsx';
 import { AppTabbar } from '@/components/AppTabbar/AppTabbar.tsx';
 import { SessionRejected } from '@/components/SessionRejected/SessionRejected.tsx';
+import { ServiceUnavailable } from '@/components/ServiceUnavailable/ServiceUnavailable.tsx';
 
 export function App() {
   const lp = useMemo(() => retrieveLaunchParams(), []);
@@ -31,6 +32,7 @@ export function App() {
               </div>
               <AppTabbar />
               <SessionRejected />
+              <ServiceUnavailable />
             </CheckoutProvider>
           </CartProvider>
         </AuthProvider>

@@ -192,14 +192,24 @@ env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u dep
 ## 6. Деплой frontend ✅ уже сделано
 
 Фронтенд собирается прямо на сервере из склонированного репозитория (`/opt/tg-miniapp/build/repo`)
-и копируется в вебрут:
+и публикуется скриптом `server/deploy/frontend/deploy-frontend.sh`:
 
 ```bash
 cd /opt/tg-miniapp/build/repo
 npm ci && npm run build
-rm -rf /var/www/exeedbot-frontend/*
-cp -r dist/* /var/www/exeedbot-frontend/
+install -m 755 server/deploy/frontend/deploy-frontend.sh /usr/local/bin/tg-miniapp-deploy-frontend
+tg-miniapp-deploy-frontend dist
 ```
+
+`/var/www/exeedbot-frontend` — это символьная ссылка на текущую версию в `/var/www/exeedbot-releases/`.
+Каждая сборка кладётся в свою папку, и ссылка переключается на неё одним переименованием. Поэтому
+нет момента, когда сайт скопирован наполовину и показывает белый экран. Файлы предыдущей версии
+переносятся в новую, чтобы уже открытая страница могла загрузить свои старые скрипты. Хранятся 5
+последних версий. Откат: `ln -sfn /var/www/exeedbot-releases/<папка> /var/www/exeedbot-frontend`.
+
+Пока перезапускается бэкенд (около 10 секунд) или сервер недоступен, приложение показывает заглушку
+«Обновляем магазин». Сервер проверяется каждые 3 секунды, и заглушка исчезает сама. Если сбой пришёлся
+на запуск, страница перезагрузится. Если человек был внутри, введённые данные сохранятся.
 
 Проверка, что отдаётся свежая сборка: хэш в `curl -s https://exeedbot.ru/ | grep -o 'assets/index-[^"]*\.js'`
 должен совпадать с хэшем из вывода `npm run build`.
