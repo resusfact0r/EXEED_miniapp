@@ -385,7 +385,21 @@ systemctl daemon-reload && systemctl enable --now tg-miniapp-backup.timer
 Проверка: `systemctl list-timers tg-miniapp-backup.timer` — время следующего запуска;
 `systemctl start tg-miniapp-backup` — внеплановый бэкап; `journalctl -u tg-miniapp-backup` — лог.
 
-**Восстановление** (из скачанного из Telegram или локального файла):
+**Шифрование.** Копия в Telegram зашифрована: `tg-miniapp_<дата>.dump.enc`, AES-256, ключ получается
+из пароля через PBKDF2 (200 000 итераций). Пароль лежит на сервере в `/root/.tg-miniapp-backup.key`
+(доступ только root), владелец хранит его копию отдельно — в письме «Ключ бэкапов exeedbot.ru».
+Без этого пароля копию из Telegram не восстановить, а если сервера не станет, копия на нём пропадёт
+вместе с ним. Если ключа на сервере нет, бэкап в Telegram не отправляется, а юнит завершается
+с ошибкой, и сторож об этом сообщает. Локальные копии в `/var/backups/tg-miniapp/` не шифруются.
+
+Расшифровать скачанную из Telegram копию:
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:/root/.tg-miniapp-backup.key \
+  -in tg-miniapp_<дата>.dump.enc -out tg-miniapp_<дата>.dump
+# на новом сервере вместо file:… — pass:'<пароль из письма>'
+```
+
+**Восстановление** (из расшифрованного или локального файла):
 
 ```bash
 su - deploy -c 'pm2 stop tg-miniapp-backend'
