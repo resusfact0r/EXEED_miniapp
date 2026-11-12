@@ -7,7 +7,7 @@ import { getSeller } from '../legal/seller';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PartLookupService } from './part-lookup.service';
-import { callTelegram, type TelegramApiResult } from './telegram-api';
+import { callTelegram, getBotUsername, type TelegramApiResult } from './telegram-api';
 
 // Statuses that are waiting on the operator, not on the customer or the warehouse.
 const NEEDS_OPERATOR: Array<'NEW' | 'AWAITING_PAYMENT_LINK'> = ['NEW', 'AWAITING_PAYMENT_LINK'];
@@ -54,24 +54,15 @@ type TransitionResult =
 export class BotService {
   private readonly logger = new Logger(BotService.name);
 
-  private username?: Promise<string | null>;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
     private readonly parts: PartLookupService,
   ) {}
 
-  /** The bot's own @username, to spot mentions of it. Asked once; a failed ask is retried later. */
+  /** The bot's own @username, to spot mentions of it. */
   private getUsername(): Promise<string | null> {
-    if (!this.username) {
-      this.username = callTelegram<{ username?: string }>('getMe', {}).then((r) => {
-        const name = r?.ok ? (r.result?.username ?? null) : null;
-        if (!name) this.username = undefined;
-        return name;
-      });
-    }
-    return this.username;
+    return getBotUsername();
   }
 
   // Typed as a loose Record rather than a strict Update interface: this is Telegram's payload,
@@ -83,11 +74,17 @@ export class BotService {
           message_id?: number;
           text?: string;
           chat?: { id?: number; type?: string };
+          from?: { id?: number; first_name?: string; last_name?: string; username?: string };
+          contact?: { user_id?: number; phone_number?: string };
           reply_to_message?: { from?: { username?: string } };
         }
       | undefined;
     const text = message?.text?.trim();
     const chatId = message?.chat?.id;
+    if (chatId && message?.contact && message.chat?.type === 'private') {
+      await this.handleContact(chatId, message.from, message.contact);
+      return;
+    }
     if (!chatId || !text) {
       return;
     }
@@ -155,6 +152,49 @@ export class BotService {
       return;
     }
     await handler(chatId, args);
+  }
+
+  /**
+   * The answer to the "📱 Поделиться номером" button (AuthService.requestPhoneInChat). Only the
+   * sender's own number is taken - Telegram marks it with their user_id - and only after the
+   * personal data consent, when that's switched on.
+   */
+  private async handleContact(
+    chatId: number,
+    from: { id?: number; first_name?: string; last_name?: string; username?: string } | undefined,
+    contact: { user_id?: number; phone_number?: string },
+  ) {
+    const removeKeyboard = { reply_markup: { remove_keyboard: true } };
+    if (!from?.id || contact.user_id !== from.id || !contact.phone_number) {
+      await callTelegram('sendMessage', { chat_id: chatId, text: 'Отправьте свой номер кнопкой «📱 Поделиться номером».' });
+      return;
+    }
+    const telegramId = BigInt(from.id);
+    const existing = await this.prisma.user.findUnique({ where: { telegramId } });
+    if (getSeller() && !existing?.pdConsentAt) {
+      await callTelegram('sendMessage', {
+        chat_id: chatId,
+        text: 'Сначала откройте приложение и дайте согласие на обработку персональных данных — номер сохраним после этого.',
+        ...removeKeyboard,
+      });
+      return;
+    }
+    await this.prisma.user.upsert({
+      where: { telegramId },
+      update: { phone: contact.phone_number },
+      create: {
+        telegramId,
+        phone: contact.phone_number,
+        firstName: from.first_name,
+        lastName: from.last_name,
+        username: from.username,
+      },
+    });
+    await callTelegram('sendMessage', {
+      chat_id: chatId,
+      text: '✅ Номер сохранён. Можно вернуться в приложение.',
+      ...removeKeyboard,
+    });
   }
 
   /** Price and stock for the articles in `text`, as a reply to the asking message. */

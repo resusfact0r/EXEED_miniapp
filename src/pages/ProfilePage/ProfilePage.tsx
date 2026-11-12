@@ -16,7 +16,7 @@ import { Link } from '@/components/Link/Link.tsx';
 
 export const ProfilePage: FC = () => {
   const { user, loading, error, setUser } = useAuth();
-  const { request, loading: requesting, error: requestError } = useRequestPhone(setUser);
+  const { request, loading: requesting, error: requestError, hint } = useRequestPhone(setUser);
   const consent = useConsent();
   const seller = useLegal()?.seller;
   const [savingPrefs, setSavingPrefs] = useState(false);
@@ -76,7 +76,7 @@ export const ProfilePage: FC = () => {
 
         {consent.needed && <ConsentCheckbox checked={consent.checked} onChange={consent.setChecked} />}
 
-        <Section footer={requestError ?? consent.error ?? undefined}>
+        <Section footer={requestError ?? consent.error ?? hint ?? undefined}>
           <div style={{ padding: 16 }}>
             <Button size="l" stretched loading={requesting} disabled={!consent.canProceed} onClick={() => void sharePhone()}>
               {user.hasPhone ? 'Изменить номер телефона' : 'Поделиться номером телефона'}

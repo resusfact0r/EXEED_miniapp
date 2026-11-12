@@ -12,7 +12,7 @@ const BRANDS = ['CHERY', 'EXEED', 'OMODA', 'JAECOO'];
 export const WelcomePage: FC = () => {
   const navigate = useNavigate();
   const { setUser } = useAuth();
-  const { request, loading, error } = useRequestPhone((user) => {
+  const { request, loading, error, hint } = useRequestPhone((user) => {
     setUser(user);
     navigate('/catalog', { replace: true });
   });
@@ -58,7 +58,7 @@ export const WelcomePage: FC = () => {
       {consent.needed && <ConsentCheckbox checked={consent.checked} onChange={consent.setChecked} />}
       <Placeholder
         header="Начнём с номера телефона"
-        description={error ?? consent.error ?? 'Он нужен, чтобы мы могли связаться с вами по заказу.'}
+        description={error ?? consent.error ?? hint ?? 'Он нужен, чтобы мы могли связаться с вами по заказу.'}
         action={
           <Button size="l" loading={loading} disabled={!consent.canProceed} onClick={() => void sharePhone()}>
             Поделиться номером

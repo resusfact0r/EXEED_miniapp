@@ -8,7 +8,7 @@ import { useRequestPhone } from '@/hooks/useRequestPhone.ts';
 
 export const PhoneGate: FC<PropsWithChildren> = ({ children }) => {
   const { hasPhone, loading, setUser } = useAuth();
-  const { request, loading: requesting, error } = useRequestPhone(setUser);
+  const { request, loading: requesting, error, hint } = useRequestPhone(setUser);
   const consent = useConsent();
 
   if (loading || consent.loading) {
@@ -33,6 +33,7 @@ export const PhoneGate: FC<PropsWithChildren> = ({ children }) => {
         description={
           error ??
           consent.error ??
+          hint ??
           (hasPhone
             ? 'Чтобы оформить заказ, дайте согласие на обработку персональных данных.'
             : 'Чтобы оформить заказ, поделитесь номером телефона для связи.')

@@ -26,6 +26,20 @@ function getDispatcher(): Dispatcher | undefined {
   return cachedDispatcher;
 }
 
+let botUsername: Promise<string | null> | undefined;
+
+/** The bot's @username, asked once. A failed ask is retried next time. */
+export function getBotUsername(): Promise<string | null> {
+  if (!botUsername) {
+    botUsername = callTelegram<{ username?: string }>('getMe', {}).then((r) => {
+      const name = r?.ok ? (r.result?.username ?? null) : null;
+      if (!name) botUsername = undefined;
+      return name;
+    });
+  }
+  return botUsername;
+}
+
 export interface TelegramApiResult<T> {
   ok: boolean;
   result?: T;

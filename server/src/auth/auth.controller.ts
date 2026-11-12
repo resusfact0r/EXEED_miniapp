@@ -41,6 +41,12 @@ export class AuthController {
     return toProfile(updated);
   }
 
+  @Post('request-phone')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  requestPhone(@CurrentUser() user: User) {
+    return this.authService.requestPhoneInChat(user);
+  }
+
   @Post('consent')
   async acceptConsent(@CurrentUser() user: User) {
     return toProfile(await this.authService.acceptConsent(user));
