@@ -12,7 +12,10 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "preview": "vite preview",
-    "predeploy": "npm run build"
+    "predeploy": "npm run build",
+    "prebuild": "node scripts/build-web-catalog.mjs",
+    "predev": "node scripts/build-web-catalog.mjs",
+    "test:web": "node --test tests/web-catalog.test.mjs"
   },
   "dependencies": {
     "@telegram-apps/sdk-react": "^3.3.1",

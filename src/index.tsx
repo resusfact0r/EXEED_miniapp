@@ -1,43 +1,11 @@
-// Include Telegram UI styles first to allow our code override the package CSS.
-import '@telegram-apps/telegram-ui/dist/styles.css';
+import { shouldOpenMiniApp } from './web/launch';
 
-// First, before the router or the SDK touch the URL: whether this launch came with fresh data.
-import '@/helpers/launchFreshness.ts';
-
-import ReactDOM from 'react-dom/client';
-import { StrictMode } from 'react';
-import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
-
-import { Root } from '@/components/Root.tsx';
-import { EnvUnsupported } from '@/components/EnvUnsupported.tsx';
-import { init } from '@/init.ts';
-
-import './index.css';
-
-// Mock the environment in case, we are outside Telegram.
-import './mockEnv.ts';
-
-const root = ReactDOM.createRoot(document.getElementById('root')!);
-
-try {
-  const launchParams = retrieveLaunchParams();
-  const { tgWebAppPlatform: platform } = launchParams;
-  const debug = (launchParams.tgWebAppStartParam || '').includes('platformer_debug')
-    || import.meta.env.DEV;
-
-  // Configure all application dependencies.
-  await init({
-    debug,
-    eruda: debug && ['ios', 'android'].includes(platform),
-    mockForMacOS: platform === 'macos',
-  })
-    .then(() => {
-      root.render(
-        <StrictMode>
-          <Root/>
-        </StrictMode>,
-      );
-    });
-} catch (e) {
-  root.render(<EnvUnsupported/>);
+// A browser visitor has no Telegram credentials: do not initialize Telegram mocks here.
+if (shouldOpenMiniApp(window.location.href, window)) {
+  await import('./telegram');
+} else {
+  const [{ createRoot }, { StrictMode }, { WebApp }] = await Promise.all([
+    import('react-dom/client'), import('react'), import('./web/WebApp'),
+  ]);
+  createRoot(document.getElementById('root')!).render(<StrictMode><WebApp/></StrictMode>);
 }
