@@ -28,3 +28,6 @@ dist-ssr
 # Supplier price lists (customer-facing prices; arrive by email, not kept in git)
 server/data/*.xls
 server/data/*.xlsx
+
+# Generated retail snapshot for browser catalog
+public/web-catalog.json
