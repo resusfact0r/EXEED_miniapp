@@ -31,3 +31,6 @@ server/data/*.xlsx
 
 # Generated retail snapshot for browser catalog
 public/web-catalog.json
+
+# Generated CI release artifacts
+/work/
