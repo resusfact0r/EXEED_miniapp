@@ -42,7 +42,10 @@ rollback() {
 trap rollback ERR
 
 id deploy >/dev/null
-mkdir -p "$RELEASES" "$ROOT/shared"
+# The systemd service deliberately uses umask 0077 for downloads/state. Application parents
+# must nevertheless be traversable by the deploy account (and public frontend parents by nginx).
+install -d -m 755 -o root -g root "$RELEASES"
+install -d -m 750 -o root -g deploy "$ROOT/shared"
 if [[ ! -f "$ENV_FILE" ]]; then
   [[ -f "$LIVE/.env" ]] || { echo "Existing runtime configuration is missing: $LIVE/.env"; exit 1; }
   install -m 600 -o deploy -g deploy "$LIVE/.env" "$ENV_FILE"
@@ -55,7 +58,7 @@ if [[ "$(readlink -f "$LIVE" || true)" == "$RELEASE/backend" && -f "$WEB_ROOT/ve
   exit 0
 fi
 
-mkdir -p "$RELEASE"
+install -d -m 755 "$RELEASE"
 # Validate all archive paths before extracting a CI artifact with root privileges.
 python3 - "$ARCHIVE" "$RELEASE" <<'PY'
 import sys, tarfile
@@ -84,7 +87,7 @@ as_deploy bash -c '
 # Convert the original plain directory once; subsequent releases use an atomic symlink switch.
 if [[ -d "$LIVE" && ! -L "$LIVE" ]]; then
   LEGACY="$RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)"
-  mkdir -p "$LEGACY"
+  install -d -m 755 "$LEGACY"
   mv "$LIVE" "$LEGACY/backend"
   PREVIOUS_BACKEND="$LEGACY/backend"
   SWITCHED=1
@@ -107,7 +110,7 @@ done
 [[ "$READY" == 1 ]] || { echo 'Backend health checks did not pass'; false; }
 if [[ -d "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
   PREVIOUS_FRONTEND="/var/www/exeedbot-releases/legacy-$SHA"
-  mkdir -p /var/www/exeedbot-releases
+  install -d -m 755 /var/www/exeedbot-releases
   mv "$WEB_ROOT" "$PREVIOUS_FRONTEND"
   ln -s "$PREVIOUS_FRONTEND" "$WEB_ROOT"
 fi
