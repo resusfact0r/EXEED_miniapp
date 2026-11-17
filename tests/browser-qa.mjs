@@ -251,6 +251,8 @@ try {
       await search(page, 'SQRF4J20 202001630AA');
       assert.deepEqual(await codes(page), ['202001630AA']);
       await search(page, 'SQRF4J16 202001630AA');
+      await page.waitForSelector('.empty-state h3');
+      assert.equal(await page.$eval('.empty-state h3', (element) => element.textContent), 'Детали не найдены');
       assert.deepEqual(await codes(page), []);
     }));
   }
