@@ -1,0 +1,741 @@
+{
+  "schemaVersion": 1,
+  "checkedDate": "2026-11-17",
+  "status": "no_new_vehicle_links_approved",
+  "scope": "The previously researched sample of 100 articles, not the complete catalog.",
+  "sourceEvidenceFile": "evidence.json",
+  "sourceEvidenceSha256": "1b939072701d7831a7288a219dfe1b0119227256f5e3704372dd083cd5ea9cb0",
+  "summary": {
+    "articlesReviewed": 100,
+    "articlesApproved": 0,
+    "articlesHeld": 100,
+    "newVehicleLinksApproved": 0,
+    "reasons": {
+      "search_or_seller_claims_without_verified_variant_scope": 85,
+      "document_occurrence_without_verified_variant_scope": 2,
+      "no_results_for_original_exact_article_query": 13
+    }
+  },
+  "approvedNewVehicleLinks": [],
+  "existingCatalogDataChanged": false,
+  "productionVersionAtReview": "eb0614fe2f2651d05f2e506cd5e448187ea60fa3",
+  "vxFlModelYearFrom": 2024,
+  "reasonDefinitions": {
+    "document_occurrence_without_verified_variant_scope": "Exact number visually checked in the T1E 2020 labour time manual, but row-specific configuration scope is not established sufficiently for this import.",
+    "search_or_seller_claims_without_verified_variant_scope": "Search candidates and/or seller claims do not establish a verified model/configuration link. This status does not assert a manual review of every result page.",
+    "no_results_for_original_exact_article_query": "No results for the original query; no claim that other sources do not exist."
+  },
+  "additionalReviewedSource": {
+    "article": "302000129AA",
+    "source": "https://webshop.nrf.eu/20100775.html",
+    "finding": "An aftermarket manufacturer OE cross-reference is present, while the page says configuration compatibility data is not published. No original-part vehicle link was accepted."
+  },
+  "articles": [
+    {
+      "article": "111100012AA",
+      "catalogName": "ВПУСКНОЙ ТРУБОПРОВОД В СБОРЕ T1C/M1DFL2",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "110200134AA",
+      "catalogName": "ПОСАДОЧНОЕ КОЛЬЦО ВПУСКНОГО КЛАПАНА T1GC",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "484F1008018",
+      "catalogName": "ПРОКЛАДКА ВПУСКНОГО КОЛЛЕКТОРА T21/T19/T15",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "206000119AB",
+      "catalogName": "ПОДУШКА ДВИГАТЕЛЯ ЗАДНЯЯ ПРАВАЯ T1EJ/T1E/T1C/T19C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "110300090AA",
+      "catalogName": "ШКИВ КОЛЕНВАЛА МЕТ. EH7/T28P/M1EP/T1P-PHEV/T1JPHEV/T1EJP/T22PHEV/E0Y/T26P/T1LPH",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "155001430AA",
+      "catalogName": "ВОЗВРАТНЫЙ ТОПЛИВОПРОВОД 2 T19C/T1C/T1E",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "155000158AA",
+      "catalogName": "ВЫПУСКНОЙ КЛАПАН ТОПЛИВОПРОВОДА T1A/T1E/T1D/T1C",
+      "decision": "hold",
+      "reason": "document_occurrence_without_verified_variant_scope",
+      "newVehicleLinks": [],
+      "documentPdfPages": [
+        137
+      ]
+    },
+    {
+      "article": "155002359AA",
+      "catalogName": "ШЛАНГ ТОПЛИВНЫЙ 1 T1Q/T13T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "F4J161006030BA",
+      "catalogName": "ШЕСТЕРНЯ РАСПРЕДВАЛОВ ВПУСК T1A/T1D/T1E/M31T/M32T/T1C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "302001163AA",
+      "catalogName": "ВОЗДУХОВОД ВПУСКНОЙ 3 M36T/M32T/M31T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "302001286AA",
+      "catalogName": "ВПУСКНОЙ ПАТРУБОК ИНТЕРКУЛЕРА M36T/M32T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "G4J151005030",
+      "catalogName": "ШКИВ КОЛЕНВАЛА МЕТ. T1E/M1D/T1J/J60/X70PLUS",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "502005573AADYJ",
+      "catalogName": "ЭЛЕМЕНТ СИЛОВОЙ ЗАДНИЙ БОКОВИНЫ КУЗОВА внутр.лев. T28P/T28",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "502014990AADYJ",
+      "catalogName": "БОКОВИНА КУЗОВА СРЕДНЯЯ ПРАВАЯ T1EJP/T1EJ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "609007426AA",
+      "catalogName": "ЭМБЛЕМА ТОПЛИВНОГО НАСОСА T1EJ/T19C/T1C/T1J/M36T/M32T",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "403015318AAABK",
+      "catalogName": "НАКЛАДКА ПОРОГА ПРАВАЯ T18FL4",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "602008211AAAUK",
+      "catalogName": "БАМПЕР ПЕРЕДНИЙ ЛЕВЫЙ МАТОВО-СЕРЫЙ T1GC",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "602001889AA",
+      "catalogName": "АБСОРБЕР ПЕРЕДНЕГО БАМПЕРА T19C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "602001536AA",
+      "catalogName": "ЮБКА ПЕРЕДНЕГО БАМПЕРА серебристая M1DFL2",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "609000476AA",
+      "catalogName": "ЭМБЛЕМА ЧЕРИ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "602000709AA",
+      "catalogName": "БАМПЕР ЗАДНИЙ НИЖНЯЯ ЧАСТЬ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "802000110AA",
+      "catalogName": "БЛОК КУЗОВНОЙ ЭЛЕКТРОНИКИ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "403015317AAABK",
+      "catalogName": "НАКЛАДКА ПОРОГА ЛЕВАЯ T18FL4",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "502013312AADYJ",
+      "catalogName": "ЭЛЕМЕНТ СИЛОВОЙ ЗАДНИЙ БОКОВИНЫ КУЗОВА ПРАВОЙ T13C",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "201000470AA",
+      "catalogName": "ЭЛЕКТРИЧЕСКАЯ РУЛЕВАЯ КОЛОНКА С I-ОБРАЗНЫМ ВАЛОМ M1DFL2",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "J603001011",
+      "catalogName": "ПОВОРОТНЫЙ КУЛАК ЛЕВЫЙ M1D/M1DFL2/J60",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "202004956AA",
+      "catalogName": "АМОРТИЗАТОР ПЕРЕДНИЙ ПРАВЫЙ E02",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "609005281AA",
+      "catalogName": "ПАНЕЛЬ СТОЙКИ ЛЕВОЙ В СБОРЕ ДЛЯ ДВЕРИ ЗАДНЕЙ",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "202002278AA",
+      "catalogName": "АМОРТИЗАТОР ПЕРЕДНИЙ ПРАВЫЙ T1EJ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "202004951AA",
+      "catalogName": "АМОРТИЗАТОР ЗАДНИЙ ЛЕВЫЙ E02",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "202003452AA",
+      "catalogName": "АМОРТИЗАТОР ЛЕВЫЙ T26",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "206001437AA",
+      "catalogName": "ОПОРА АМОРТИЗАТОРА ПРАВОГО T26/T22/T28",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "T212901110",
+      "catalogName": "ОПОРА АМОРТИЗАТОРА T21",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "T112901110",
+      "catalogName": "ОПОРА ВЕРХНЯЯ СТОЙКИ ПОДВЕСКИ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "202004958AA",
+      "catalogName": "АМОРТИЗАТОР ПОДВЕСКИ ЗАДНИЙ В СБОРЕ",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "202003507AA",
+      "catalogName": "АМОРТИЗАТОР ПЕРЕДНИЙ ПРАВЫЙ T1GC",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "T116GN3502023",
+      "catalogName": "ПРУЖИНА ТОРМОЗНЫХ КОЛОДОК ЛЕВАЯ ВЕРХНЯЯ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "403005537AA",
+      "catalogName": "АБСОРБЕР КОЛЁСНОЙ АРКИ ЗАДНЕЙ ЛЕВОЙ T1C/T1E/T19",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "204000470AA",
+      "catalogName": "ВОЗВРАТНАЯ ПРУЖИНА ТОРМОЗНЫХ КОЛОДОК МЕТ. T1E/T1A/T1D/T18/T1C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "204007331AA",
+      "catalogName": "ЛЕВЫЙ ПЕРЕДНИЙ СУППОРТ В СБОРЕ МЕТ.",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "207000691AA",
+      "catalogName": "ДАТЧИК АБС ПЕРЕДНИЙ ЛЕВЫЙ T19FL",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "J683506090",
+      "catalogName": "ТРУБКА ТОРМОЗНАЯ ЗАДНЯЯ ЛЕВАЯ 3 T15/T19",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "207000066AA",
+      "catalogName": "ДАТЧИК АБС ПЕРЕДНИЙ ПРАВЫЙ M1DFL2/M1DFL3",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "204007300AA",
+      "catalogName": "ТРУБКА ТОРМОЗНАЯ ПЕРЕДНЯЯ ЛЕВАЯ T1D/T18FL4/T18",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "204001537AA",
+      "catalogName": "ДИСК ТОРМОЗНОЙ ЗАДНИЙ T22/M36T/T26",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "204000942AA",
+      "catalogName": "СУППОРТ ТОРМОЗНОЙ ПЕРЕДНИЙ ЛЕВЫЙ M1E",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "204005813AA",
+      "catalogName": "УСТАНОВОЧНЫЙ ВИНТ ТОРМОЗНОГО ДИСКА T1Q/T1JPV/T1EJ/E02/T1NJSFL1/T1NJFL5/S08DM/D01PH",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "A21XLB3502067BA",
+      "catalogName": "НАПРАВЛЯЮЩИЙ ШТИФТ ПЕРЕДНЕГО ТОРМОЗНОГО СУППОРТА",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "CHR5229",
+      "catalogName": "Защита картера и КПП Omoda C5 1,5Т CVT FWD (алюминий)",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "603000185AA",
+      "catalogName": "МОТОР ПРИВОДА СТЕКЛА ЛЮКА M36T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "FA840A1504231",
+      "catalogName": "ЭЛЕКТРОННЫЙ ПРИВОД ПЕРЕКЛЮЧЕНИЯ ПЕРЕДАЧ T26/T28",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "T156804010CC",
+      "catalogName": "КРЕПЛЕНИЕ СИДЕНЬЯ С ПРИВОДОМ T15/J68/T18/T19/T1C/T1A",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "603000186AA",
+      "catalogName": "МОТОР ПРИВОДА ШТОРКИ ЛЮКА M36T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "3HN150200623",
+      "catalogName": "ВЕНТИЛЯЦИОННАЯ ТРУБКА ТРАНСМИССИИ T1D/T18",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "OMODA1105",
+      "catalogName": "ЗК+ЗКПП и крепеж подходит для OMODA S5 (M1DFL2), 2WD, 1,5 бен. CVT, 2023-",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "T111703540HD",
+      "catalogName": "ЧЕХОЛ РУЧКИ КПП (черный)",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "QR523MHC1602500",
+      "catalogName": "ПОДШИПНИК СЦЕПЛЕНИЯ ВЫЖИМНОЙ B11/B14/M11/T11/T21/T19",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "J421601030BA",
+      "catalogName": "ДИСК СЦЕПЛЕНИЯ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "F4J151021050",
+      "catalogName": "УСПОКОИТЕЛЬ ЦЕПИ ПРИВОДА ГРМ T1A/T1D/T1E/M31T/M32T/T1C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "T113404052",
+      "catalogName": "КАРДАН РУЛЕВОЙ ВЕРХНИЙ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "301000851AA",
+      "catalogName": "РАДИАТОР КОНДИЦИОНЕРА T22/T26",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "302000916AA",
+      "catalogName": "ВЕНТИЛЯТОР T19/T19C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "302000129AA",
+      "catalogName": "ВПУСКНОЙ ПАТРУБОК ИНТЕРКУЛЕРА T1A/T1E/T1D",
+      "decision": "hold",
+      "reason": "document_occurrence_without_verified_variant_scope",
+      "newVehicleLinks": [],
+      "documentPdfPages": [
+        103
+      ]
+    },
+    {
+      "article": "501004348AADYJ",
+      "catalogName": "ПОПЕРЕЧНАЯ БАЛКА РАДИАТОРА верх M1DFL3/M1E",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "F4J161118051AE",
+      "catalogName": "ВПУСКНОЙ ПАТРУБОК ТУРБОКОМПРЕССОРА РЕЗ. ALL MODEL",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "401000661AA",
+      "catalogName": "ВОЗДУХОВОД КОНДИЦИОНЕРА ЛЕВЫЙ M36T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "302004273AA",
+      "catalogName": "ВЫПУСКНОЙ ПАТРУБОК ИНТЕРКУЛЕРА T1Q/T13T",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "11301360",
+      "catalogName": "Антифриз «TENET» ОАТ 1кг.",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "302000842AA",
+      "catalogName": "ВЕНТИЛЯТОР ОХЛАЖДЕНИЯ T1D/T1CPHEV/T19C/T18/T1E",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "111300033AA",
+      "catalogName": "ПОМПА T1A/T18/T1D/T19C/T1E/X70PLUS/T1C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "M118103010BE",
+      "catalogName": "КОМПРЕССОР КОНДИЦИОНЕРА",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "E4G161303711BB",
+      "catalogName": "ВЫПУСКНОЙ ПАТРУБОК J42/T19/T11/J69",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "608000616AA",
+      "catalogName": "ЭЛЕКТРОДВИГАТЕЛЬ СТЕКЛООЧИСТИТЕЛЯ В СБОРЕ С ТРАПЕЦИЕЙ",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "806007847AA",
+      "catalogName": "ЖГУТ ПРОВОДОВ 5-Й ДВЕРИ M32T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "F4J163708010AC",
+      "catalogName": "СТАРТЕР T1A/T1D/T1E/T1C/СЕ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "407000568AA",
+      "catalogName": "БЛОК УПРАВЛЕНИЯ ПОДУШКАМИ БЕЗОПАСНОСТИ T18FL4/T1EMY/T18/T19C/T1EJP/T22P/T28",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "132000112AA",
+      "catalogName": "БЛОК УПРАВЛЕНИЯ КПП M32T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "E4G161025051",
+      "catalogName": "РЕМЕНЬ ПРИВОДНОЙ (генератора)",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "806018924AA",
+      "catalogName": "ЖГУТ ПРОВОДОВ ДВЕРИ ЗАДНЕЙ 5-Й ЛЕВЫЙ T1Q",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "806022315AA",
+      "catalogName": "ЖГУТ ПРОВОДОВ - ПОЛ T19C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "704000862AAACL",
+      "catalogName": "УЛЬТРАЗВУКОВОЙ ДАТЧИК NEW CARBON CRYSTAL BLACK M36T/M32T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "806018037AA",
+      "catalogName": "ЖГУТ ПРОВОДОВ ДВЕРИ ПЕРЕДНЕЙ ПРАВОЙ T19FL2",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "806006625AA",
+      "catalogName": "ЖГУТ ПРОВОДКИ ДВЕРИ ПЕРЕДНЕЙ ПРАВОЙ T19FL",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "T157900203AASJ",
+      "catalogName": "УЛЬТРАЗВУКОВОЙ ДАТЧИК БОЛЬШОЙ ДАЛЬНОСТИ M32T/T1C/M36T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "401006953AA",
+      "catalogName": "ПОДЛОКОТНИК T13T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "402018235AAABK",
+      "catalogName": "ПОДГОЛОВНИК ЗАДНЕГО СИДЕНЬЯ T18FL4/T26",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "602000138AA",
+      "catalogName": "ДЕФЛЕКТОР ВЕНТИЛЯЦИИ ЛЕВЫЙ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "608000123AA",
+      "catalogName": "ЩЁТКА СТЕКЛООЧИСТИТЕЛЯ ПРАВАЯ T1D/T1A",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "403016851AAAGY",
+      "catalogName": "ПОДЛОКОТНИК ПРАВОГО СИДЕНЬЯ T19",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "S115205350",
+      "catalogName": "ПОВОДОК СТЕКЛООЧИСТИТЕЛЯ ПРАВЫЙ МЕТАЛЛ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "403000141AAABK",
+      "catalogName": "ЯЩИК ДЛЯ ХРАНЕНИЯ В БАГАЖНИК пластик T18/T11/T1A/T1D",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "703000994AA",
+      "catalogName": "ЭКРАН ПРИБОРНОЙ ПАНЕЛИ T1EJ",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "402008420AA",
+      "catalogName": "БОКОВОЙ ЛЮЧОК ПЕРЕДНЕГО СИДЕНЬЯ M36T",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "403002882AABGY",
+      "catalogName": "ПОДЛОКОТНИК ДВЕРИ ПЕРЕДНЕЙ ПРАВОЙ T1C",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "302002400AA",
+      "catalogName": "ДЕФЛЕКТОР ВЕНТИЛЯЦИИ ЛЕВЫЙ T18FL4",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "402010654AA",
+      "catalogName": "ВТУЛКА КРОНШТЕЙНА ПОДЛОКОТНИКА T22PHEV/E03/T22",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "501014147AA",
+      "catalogName": "КРОНШТЕЙН ПНЕВМОУПОРА КАПОТА ЛЕВЫЙ T19FL",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "301001157AA",
+      "catalogName": "ФИЛЬТР САЛОНА N95 T15/T18/T19/T1A/T1E/T1C/T1D",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "ZJPCY3000654",
+      "catalogName": "АЛЮМИНИЕВО-МАГНИЕВАЯ ЗАЩИТНАЯ ПЛАСТИНА ДВИГАТЕЛЯ V27",
+      "decision": "hold",
+      "reason": "no_results_for_original_exact_article_query",
+      "newVehicleLinks": []
+    },
+    {
+      "article": "155002068AA",
+      "catalogName": "БАЛКА АВАРИЙНОГО ОТСЕКА ТОПЛИВНОГО БАКА T22/T26",
+      "decision": "hold",
+      "reason": "search_or_seller_claims_without_verified_variant_scope",
+      "newVehicleLinks": []
+    }
+  ]
+}
