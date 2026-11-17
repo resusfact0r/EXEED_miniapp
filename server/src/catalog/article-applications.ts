@@ -12,8 +12,6 @@ export interface CatalogApplication {
   brand: string;
   model: string;
   configuration: string;
-  sourceUrl: string;
-  sourcePosition: string;
   checkedDate: string;
   modelYearFrom?: number;
 }
@@ -27,8 +25,10 @@ const registry = data as unknown as {
 /** Exact reviewed article only. No prefix, suffix, model-code or cross-reference inference. */
 export function articleApplications(code: string | undefined): CatalogApplication[] | undefined {
   if (!code || !Object.prototype.hasOwnProperty.call(registry.articles, code)) return undefined;
-  return registry.articles[code].map(([profileIndex, sourcePosition, sourceArticle]) => {
-    const { schemeUrl, ...profile } = registry.profiles[profileIndex];
-    return { ...profile, sourcePosition, sourceUrl: `${schemeUrl}/${sourceArticle}`, checkedDate: registry.checkedDate };
+  return registry.articles[code].map(([profileIndex]) => {
+    const profile = registry.profiles[profileIndex];
+    // Explicit public fields keep provenance and supplier URLs in the internal registry.
+    return { brand: profile.brand, model: profile.model, configuration: profile.configuration,
+      checkedDate: registry.checkedDate, ...(profile.modelYearFrom === undefined ? {} : { modelYearFrom: profile.modelYearFrom }) };
   });
 }

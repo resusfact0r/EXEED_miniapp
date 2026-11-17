@@ -55,14 +55,14 @@ export function classifyProduct(product: { code?: string; name: string; descript
   }
   const folded = text.toLowerCase().replace(/ё/g, 'е');
   const categories = WEB_CATEGORIES.filter((category) => category.terms.some((term) => folded.includes(term.replace(/ё/g, 'е')))).map((category) => category.id);
-  const catalogApplications = articleApplications(product.code);
-  if (catalogApplications) {
+  const vehicleApplications = articleApplications(product.code);
+  if (vehicleApplications) {
     // Use only the reviewed, explicitly named revisions for these articles. A generic
     // VX in the supplier title must not silently expand a VX FL source to older VX.
     return {
-      brands: [...new Set(catalogApplications.map((application) => application.brand))],
-      models: [...new Set(catalogApplications.map((application) => `${application.brand}:${application.model}`))],
-      categories, catalogApplications,
+      brands: [...new Set(vehicleApplications.map((application) => application.brand))],
+      models: [...new Set(vehicleApplications.map((application) => `${application.brand}:${application.model}`))],
+      categories, vehicleApplications,
     };
   }
   return { brands, models, categories };
@@ -80,7 +80,8 @@ export interface NavigationProduct {
   brands: string[];
   models: string[];
   categories: string[];
-  catalogApplications?: CatalogApplication[];
+  // Older clients ignore this field instead of requiring the retired attribution URLs.
+  vehicleApplications?: CatalogApplication[];
 }
 
 export interface WebFilters {
@@ -102,7 +103,7 @@ export function filterWebProducts(products: NavigationProduct[], filters: WebFil
     if (words.every(baseMatch)) return true;
     // Keep each vehicle together: EXEED from one application and C5 from another
     // must never manufacture an EXEED C5 association.
-    return product.catalogApplications?.some((application) => {
+    return product.vehicleApplications?.some((application) => {
       const label = `${application.brand} ${application.model} ${application.configuration}`.toLowerCase();
       return words.every((word) => baseMatch(word) || label.includes(word));
     }) ?? false;

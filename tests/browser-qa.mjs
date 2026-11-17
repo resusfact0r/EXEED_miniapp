@@ -212,12 +212,14 @@ try {
     await fixture({ storageBlocked: true }, async (page) => { await ready(page); await page.click('.product-card .add-button:not([disabled])'); await page.waitForFunction(() => Number(document.querySelector('.basket-button b').textContent) > 0); });
   });
 
-  await scenario('reviewed article detail shows exact source, configuration and VX FL model year on mobile', () => fixture({ width: 390, mobile: true, path: '/?part=302001286AA' }, async (page) => {
+  await scenario('reviewed article detail retains configurations and VX FL year with no competitor links', () => fixture({ width: 390, mobile: true, path: '/?part=302001286AA' }, async (page) => {
     await page.waitForSelector('dialog[open] .catalog-applications');
     await page.click('.catalog-applications summary');
-    const applications = await page.$$eval('.catalog-applications li', (rows) => rows.map((row) => ({ text: row.textContent, url: row.querySelector('a').href })));
-    assert.ok(applications.some((item) => /EXEED VX FL/.test(item.text) && /8AT/.test(item.text) && /2024/.test(item.text)));
-    assert.ok(applications.every((item) => item.url.startsWith('https://xn--80aagvgd7a1ae.xn--p1acf/catalog/') && item.url.endsWith('/302001286AA')));
+    const applications = await page.$$eval('.catalog-applications li', (rows) => rows.map((row) => row.textContent));
+    assert.ok(applications.some((text) => /EXEED VX FL/.test(text) && /8AT/.test(text) && /2024/.test(text)));
+    assert.equal(await page.$('.catalog-applications a'), null);
+    assert.doesNotMatch(await page.$eval('body', (element) => element.textContent), /китайавто|xn--80aagvgd7a1ae/i);
+    assert.deepEqual(await page.$$eval('a[href]', (nodes) => nodes.map((node) => node.href).filter((href) => /xn--80aagvgd7a1ae|китайавто/i.test(href))), []);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await accessibility(page, 'accessibility-article-source.json');
     await page.screenshot({ path: resolve(output, 'article-source-mobile.png'), fullPage: true });

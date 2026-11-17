@@ -86,7 +86,7 @@ test('every added vehicle has a matching fetched numbered row and full article s
 
 test('catalog-backed model filters and searches preserve individual brand-model pairs', () => {
   const item = product('155000158AA', 'Выпускной клапан топливопровода');
-  const apps = item.catalogApplications;
+  const apps = item.vehicleApplications;
   assert.ok(apps.some((app) => app.brand === 'OMODA' && app.model === 'C5' && app.configuration.includes('1.6')));
   assert.equal(filterWebProducts([item], { brand: 'OMODA', model: 'C5', query: 'клапан' }).total, 1);
   assert.equal(filterWebProducts([item], { query: 'клапан OMODA C5' }).total, 1);
@@ -100,14 +100,14 @@ test('VX FL scope does not become generic VX, and unknown suffixes never inherit
   assert.ok(!item.models.includes('EXEED:VX'));
   assert.equal(filterWebProducts([item], { brand: 'EXEED', model: 'VX' }).total, 0);
   for (const code of ['302001286AAX', 'X302001286AA', '0302001286AA', '__proto__', 'constructor']) {
-    assert.equal(classifyProduct({ code, name: 'Патрубок' }).catalogApplications, undefined, code);
+    assert.equal(classifyProduct({ code, name: 'Патрубок' }).vehicleApplications, undefined, code);
     assert.deepEqual(classifyProduct({ code, name: 'Патрубок' }).models, [], code);
   }
   const pipe = product('302000129AA', 'Патрубок');
-  assert.ok(pipe.catalogApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.6')));
+  assert.ok(pipe.vehicleApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.6')));
   assert.ok(!pipe.models.includes('CHERY:Tiggo 7 Pro'));
-  assert.ok(!pipe.catalogApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.5')));
-  assert.equal(classifyProduct({ code: '302001163AA', name: 'Патрубок' }).catalogApplications, undefined);
+  assert.ok(!pipe.vehicleApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.5')));
+  assert.equal(classifyProduct({ code: '302001163AA', name: 'Патрубок' }).vehicleApplications, undefined);
 });
 
 test('all unapproved snapshot articles retain their previous text navigation', async () => {
@@ -117,7 +117,7 @@ test('all unapproved snapshot articles retain their previous text navigation', a
     const actual = classifyProduct(item);
     const previous = classifyProduct({ name: item.name, description: item.description });
     assert.deepEqual(actual.categories, previous.categories, item.code);
-    if (!actual.catalogApplications) { assert.deepEqual(actual, previous, item.code); untouched++; }
+    if (!actual.vehicleApplications) { assert.deepEqual(actual, previous, item.code); untouched++; }
   }
   assert.ok(untouched > 20000);
 });
@@ -127,4 +127,19 @@ test('metadata includes explicit revisions and new makes only when products carr
   const metadata = webMetadata([item]);
   assert.ok(metadata.brands.find((brand) => brand.name === 'EXEED').models.includes('VX FL'));
   assert.ok(!metadata.brands.find((brand) => brand.name === 'EXEED').models.includes('VX'));
+});
+
+test('all public article details and the fallback catalog exclude competitor attribution and links', async () => {
+  const registry = JSON.parse(await readFile(new URL('../server/src/catalog/article-applications.json', import.meta.url), 'utf8'));
+  const prohibited = /китайавто|xn--80aagvgd7a1ae|"(?:sourceUrl|schemeUrl|sourcePosition|sourceOrigin|sourceName|sourceEvidenceSha256|catalogApplications)"/i;
+  for (const [code, references] of Object.entries(registry.articles)) {
+    const detail = classifyProduct({ code, name: 'Деталь' });
+    assert.doesNotMatch(JSON.stringify(detail), prohibited, code);
+    assert.equal(detail.vehicleApplications.length, references.length, code);
+    for (const [index, application] of detail.vehicleApplications.entries()) {
+      const expected = registry.profiles[references[index][0]];
+      for (const key of ['brand', 'model', 'configuration', 'modelYearFrom']) assert.equal(application[key], expected[key], `${code}: ${key}`);
+    }
+  }
+  assert.doesNotMatch(await readFile(new URL('../public/web-catalog.json', import.meta.url), 'utf8'), prohibited);
 });
