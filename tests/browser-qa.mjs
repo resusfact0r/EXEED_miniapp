@@ -3,11 +3,13 @@ import { createServer } from 'node:http';
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import puppeteer from 'puppeteer-core';
-import { AxePuppeteer } from '@axe-core/puppeteer';
 import { loadTypeScript } from '../scripts/load-typescript.mjs';
 
 const dist = resolve('dist');
+const require = createRequire(import.meta.url);
+const axeScript = require.resolve('axe-core/axe.min.js');
 const output = resolve(process.env.QA_OUTPUT_DIR ?? 'work/qa');
 await mkdir(output, { recursive: true });
 const snapshot = JSON.parse(await readFile(resolve(dist, 'web-catalog.json'), 'utf8'));
@@ -103,7 +105,8 @@ async function search(page, value) {
 }
 async function codes(page) { return page.$$eval('.product-card .article-code', (elements) => elements.map((element) => element.textContent.trim())); }
 async function accessibility(page, filename) {
-  const analysis = await new AxePuppeteer(page).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice']).analyze();
+  await page.addScriptTag({ path: axeScript });
+  const analysis = await page.evaluate(async () => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice'] } }));
   await writeFile(resolve(output, filename), JSON.stringify({ violations: analysis.violations, incomplete: analysis.incomplete }, null, 2));
   assert.deepEqual(analysis.violations.map((item) => ({ id: item.id, impact: item.impact, nodes: item.nodes.map((node) => node.target) })), [], 'Automated accessibility violations');
 }
