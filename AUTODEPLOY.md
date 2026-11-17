@@ -8,13 +8,16 @@
 
 Установка выполняется под root на сервере с текущим магазином. Она использует существующие `/opt/tg-miniapp/server/.env`, пользователя `deploy`, PM2-процесс `tg-miniapp-backend` и nginx root `/var/www/exeedbot-frontend` из `DEPLOYMENT-VPS.md`.
 
-Подставьте полный SHA коммита, содержащего этот установщик. Одинаковый SHA в обоих местах фиксирует проверенную версию установщика:
+В консоли VPS выполните две команды. Длинный SHA вводить не требуется: установщик сам определит текущий коммит `feat/web-visual-catalog` и скачает служебные скрипты именно из него. Сервер по-прежнему устанавливает приложение только после успешных проверок в CI.
 
 ```bash
-REVISION=<полный-SHA-коммита>
-curl -fsSL "https://raw.githubusercontent.com/resusfact0r/EXEED_miniapp/$REVISION/server/deploy/autodeploy/install.sh" \
-  | bash -s -- "$REVISION" feat/web-visual-catalog
+curl -4 -m 30 --proto-default https -fLo /tmp/exeed.sh raw.githubusercontent.com/resusfact0r/EXEED_miniapp/feat/web-visual-catalog/server/deploy/autodeploy/install.sh
+bash /tmp/exeed.sh
 ```
+
+Вторую команду запускайте только после успешного скачивания. `--proto-default https` позволяет не вводить двоеточие в URL в веб-консоли хостинга. Скачивание ограничено 30 секундами. Сам установщик показывает этапы работы, ограничивает определение коммита 30 секундами и каждое скачивание 60 секундами. Предварительная проверка доступа без установки: `bash /tmp/exeed.sh --check`.
+
+Явное закрепление версии остаётся доступным: `bash /tmp/exeed.sh <полный-SHA-коммита> feat/web-visual-catalog`. Установщик должен быть скачан из того же коммита, если требуется закрепить и его содержимое.
 
 Команда устанавливает `exeed-autodeploy.service` и `exeed-autodeploy.timer` и сразу запускает первую проверку ветки. Сборка первого релиза в Actions должна завершиться, прежде чем сервер начнёт установку. Наличие workflow в GitHub само по себе не устанавливает таймер на VPS.
 
