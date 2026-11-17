@@ -107,11 +107,14 @@ test('VX FL scope does not become generic VX, and unknown suffixes never inherit
   assert.ok(pipe.vehicleApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.6')));
   assert.ok(!pipe.models.includes('CHERY:Tiggo 7 Pro'));
   assert.ok(!pipe.vehicleApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.5')));
-  assert.equal(classifyProduct({ code: '302001163AA', name: 'Патрубок' }).vehicleApplications, undefined);
+  assert.equal(classifyProduct({ code: '302001163AA-UNREVIEWED', name: 'Патрубок' }).vehicleApplications, undefined);
 });
 
 test('all unapproved snapshot articles retain their previous text navigation', async () => {
   const { products } = JSON.parse(await readFile(new URL('../public/web-catalog.json', import.meta.url), 'utf8'));
+  const base = JSON.parse(await readFile(new URL('../server/src/catalog/article-applications.json', import.meta.url), 'utf8'));
+  const reviewed = JSON.parse(await readFile(new URL('../server/src/catalog/reviewed-applications.json', import.meta.url), 'utf8'));
+  const approved = new Set([...Object.keys(base.articles), ...Object.keys(reviewed.articles)]);
   let untouched = 0;
   for (const item of products) {
     const actual = classifyProduct(item);
@@ -119,7 +122,7 @@ test('all unapproved snapshot articles retain their previous text navigation', a
     assert.deepEqual(actual.categories, previous.categories, item.code);
     if (!actual.vehicleApplications) { assert.deepEqual(actual, previous, item.code); untouched++; }
   }
-  assert.ok(untouched > 20000);
+  assert.equal(untouched, products.filter((item) => !approved.has(item.code)).length);
 });
 
 test('metadata includes explicit revisions and new makes only when products carry them', () => {
@@ -131,7 +134,8 @@ test('metadata includes explicit revisions and new makes only when products carr
 
 test('all public article details and the fallback catalog exclude competitor attribution and links', async () => {
   const registry = JSON.parse(await readFile(new URL('../server/src/catalog/article-applications.json', import.meta.url), 'utf8'));
-  const prohibited = /китайавто|xn--80aagvgd7a1ae|"(?:sourceUrl|schemeUrl|sourcePosition|sourceOrigin|sourceName|sourceEvidenceSha256|catalogApplications)"/i;
+  const reviewed = JSON.parse(await readFile(new URL('../server/src/catalog/reviewed-applications.json', import.meta.url), 'utf8'));
+  const prohibited = /китайавто|xn--80aagvgd7a1ae|files\.chery\.ru|"(?:sourceUrl|schemeUrl|sourcePosition|sourceOrigin|sourceName|sourceEvidenceSha256|catalogApplications|privateProof|witnessHashes|reviewSha256)"/i;
   for (const [code, references] of Object.entries(registry.articles)) {
     const detail = classifyProduct({ code, name: 'Деталь' });
     assert.doesNotMatch(JSON.stringify(detail), prohibited, code);
@@ -141,5 +145,60 @@ test('all public article details and the fallback catalog exclude competitor att
       for (const key of ['brand', 'model', 'configuration', 'modelYearFrom']) assert.equal(application[key], expected[key], `${code}: ${key}`);
     }
   }
+  for (const [code, references] of Object.entries(reviewed.articles)) {
+    const detail = classifyProduct({ code, name: 'Деталь' });
+    assert.doesNotMatch(JSON.stringify(detail), prohibited, code);
+    assert.equal(detail.vehicleApplications.length, references.length, code);
+    assert.deepEqual(detail.vehicleApplications, references.map((index) => ({ ...reviewed.profiles[index], checkedDate: reviewed.checkedDate })), code);
+  }
   assert.doesNotMatch(await readFile(new URL('../public/web-catalog.json', import.meta.url), 'utf8'), prohibited);
+});
+
+test('the completed 9334-article review authorizes only exact, witnessed applications', async () => {
+  const raw = await readFile(new URL('../research/article-review-2026-11-17/review.json', import.meta.url));
+  const review = JSON.parse(raw);
+  const registry = JSON.parse(await readFile(new URL('../server/src/catalog/reviewed-applications.json', import.meta.url), 'utf8'));
+  const base = JSON.parse(await readFile(new URL('../server/src/catalog/article-applications.json', import.meta.url), 'utf8'));
+  assert.equal(registry.reviewSha256, createHash('sha256').update(raw).digest('hex'));
+  assert.equal(new Set(review.targetArticleCodes).size, 9334);
+  assert.equal(review.summary.sourcePagesAttempted, 13702);
+  assert.deepEqual(registry.profiles, review.profiles);
+  assert.deepEqual(Object.keys(registry.articles), Object.keys(review.articles));
+  const canonical = (value) => value.replace(/[-\s]/g, '').toUpperCase();
+  let manufacturer = new Set();
+  for (const [code, references] of Object.entries(review.articles)) {
+    assert.ok(review.targetArticleCodes.includes(code), code);
+    assert.ok(!Object.hasOwn(base.articles, code), 'Earlier approved mappings must remain unchanged');
+    assert.deepEqual(registry.articles[code], references.map(([index]) => index).sort((a, b) => a - b), code);
+    for (const [index, sourceArticle, kinds, hashes] of references) {
+      assert.equal(canonical(code), canonical(sourceArticle), code);
+      assert.ok(registry.profiles[index], code);
+      assert.ok(kinds.length && kinds.every((kind) => ['manufacturer_table', 'catalog_scheme'].includes(kind)), code);
+      assert.ok(hashes.length && hashes.every((hash) => /^[a-f0-9]{64}$/.test(hash)), code);
+      if (kinds.includes('manufacturer_table')) manufacturer.add(code);
+    }
+  }
+  assert.equal(manufacturer.size, review.summary.manufacturerArticles);
+  assert.deepEqual(new Set([...Object.keys(registry.articles), ...review.heldArticleCodes]), new Set(review.targetArticleCodes));
+  assert.equal(Object.keys(registry.articles).length + review.heldArticleCodes.length, 9334);
+  for (const code of review.heldArticleCodes) assert.equal(classifyProduct({ code, name: 'Деталь' }).vehicleApplications, undefined, code);
+});
+
+test('manufacturer scopes separate powertrains, hybrids and the VX 2024 revision', () => {
+  const pipe = product('302001163AA', 'Патрубок');
+  const txl = pipe.vehicleApplications.filter((app) => app.brand === 'EXEED' && app.model === 'TXL');
+  assert.deepEqual(txl.map((app) => app.configuration), ['M32TFL · SQRF4J20 · 7DCT']);
+  assert.equal(filterWebProducts([pipe], { brand: 'EXEED', model: 'TXL', query: 'SQRF4J20' }).total, 1);
+  assert.equal(filterWebProducts([pipe], { brand: 'EXEED', model: 'TXL', query: 'SQRF4J16' }).total, 0);
+  const hybrid = product('110100017AA', 'Деталь');
+  assert.ok(hybrid.vehicleApplications.some((app) => app.brand === 'EXLANTIX' && app.model === 'ES REEV' && app.configuration.includes('1DHT')));
+  assert.ok(hybrid.vehicleApplications.some((app) => app.brand === 'EXEED' && app.model === 'RX PHEV' && app.configuration.includes('3DHT165')));
+  assert.ok(!hybrid.vehicleApplications.some((app) => app.brand === 'EXLANTIX' && ['ES', 'ES EV', 'ET', 'ET EV'].includes(app.model)));
+  const vx = product('123000090AA', 'Деталь');
+  const revision = vx.vehicleApplications.find((app) => app.brand === 'EXEED' && app.model === 'VX FL');
+  assert.equal(revision.modelYearFrom, 2024);
+  assert.match(revision.configuration, /M36TFL.*8AT/);
+  for (const code of ['302001163AB-UNREVIEWED', 'X110100017AA', '123000090AA-UNREVIEWED']) {
+    assert.equal(classifyProduct({ code, name: 'Деталь' }).vehicleApplications, undefined, code);
+  }
 });

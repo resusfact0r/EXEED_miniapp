@@ -81,7 +81,7 @@ test('public search validates parameters, composes filters and never returns pri
 test('live catalog service returns reviewed configurations without supplier URLs', async () => {
   const service = new WebCatalogService({ product: { findMany: async () => [
     { id: 'source-a', code: '302001286AA', name: 'Впускной патрубок EXEED VX', price: { toString: () => '123.45' }, stockQty: 2, packQty: 1 },
-    { id: 'source-b', code: '302001286AB', name: 'Патрубок', price: { toString: () => '222.22' }, stockQty: 1, packQty: 1 },
+    { id: 'source-b', code: '302001286AB-UNREVIEWED', name: 'Патрубок', price: { toString: () => '222.22' }, stockQty: 1, packQty: 1 },
   ] } });
   const result = await service.search({ brand: 'EXEED', model: 'VX FL' });
   assert.equal(result.total, 1);
@@ -91,5 +91,5 @@ test('live catalog service returns reviewed configurations without supplier URLs
   assert.equal(application.modelYearFrom, 2024);
   assert.match(application.configuration, /8AT/);
   assert.doesNotMatch(JSON.stringify(result), /sourceUrl|schemeUrl|sourcePosition|catalogApplications|китайавто|xn--80aagvgd7a1ae/i);
-  assert.equal((await service.product('302001286AB')).vehicleApplications, undefined);
+  assert.equal((await service.product('302001286AB-UNREVIEWED')).vehicleApplications, undefined);
 });

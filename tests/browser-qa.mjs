@@ -235,6 +235,26 @@ try {
     assert.deepEqual(await codes(page), ['155000158AA']);
   }));
 
+  for (const mode of ['live', 'snapshot']) {
+    await scenario(`manufacturer-reviewed TXL powertrain search and detail in ${mode} mode`, () => fixture({ mode, width: 390, mobile: true, path: '/?brand=EXEED&model=TXL&q=202001630AA&part=202001630AA' }, async (page) => {
+      await ready(page);
+      assert.deepEqual(await codes(page), ['202001630AA']);
+      await page.waitForSelector('dialog[open] .catalog-applications');
+      await page.click('.catalog-applications summary');
+      const applications = await page.$$eval('.catalog-applications li', (rows) => rows.map((row) => row.textContent));
+      assert.ok(applications.some((text) => /EXEED TXL/.test(text) && /M32TFL/.test(text) && /SQRF4J20/.test(text) && /7DCT/.test(text)));
+      assert.ok(!applications.some((text) => /EXEED TXL/.test(text) && /SQRF4J16/.test(text)));
+      assert.equal(await page.$('.catalog-applications a'), null);
+      assert.doesNotMatch(await page.$eval('body', (element) => element.textContent), /китайавто|xn--80aagvgd7a1ae|files\.chery\.ru/i);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.keyboard.press('Escape');
+      await search(page, 'SQRF4J20 202001630AA');
+      assert.deepEqual(await codes(page), ['202001630AA']);
+      await search(page, 'SQRF4J16 202001630AA');
+      assert.deepEqual(await codes(page), []);
+    }));
+  }
+
   await scenario('detail deep links, sharing, escape and focus restoration', () => fixture({ path: '/?part=501014147AA' }, async (page) => {
     await page.waitForSelector('dialog[open] .detail-code'); assert.equal(await page.$eval('.detail-code', (element) => element.textContent.trim()), '501014147AA');
     await page.click('.web-dialog .button-secondary'); await page.waitForFunction(() => Boolean(window.__qaCopied));
