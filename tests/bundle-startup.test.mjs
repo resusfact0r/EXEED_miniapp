@@ -72,16 +72,16 @@ test('the shipped module graph starts, loads the export, selects a part and upda
       module.evaluate(),
       delay(3000).then(() => { throw new Error('Entry module did not finish: possible top-level-await import cycle'); }),
     ]);
-    await until(() => window.document.querySelector('.hero h1'), `Storefront did not render. ${errors.join('; ')}`);
+    await until(() => window.document.querySelector('.page-intro h1'), `Storefront did not render. ${errors.join('; ')}`);
     await until(() => window.document.querySelector('.product-grid .product-card .product-name'), 'Catalog products did not load');
-    assert.match(window.document.querySelector('h1').textContent, /Нужная деталь/);
+    assert.match(window.document.querySelector('h1').textContent, /Каталог запчастей/);
     assert.match(window.document.querySelector('.snapshot-notice').textContent, /Каталог из выгрузки/);
     const engine = window.document.querySelector('[aria-label="Показать раздел: Двигатель"]');
     engine.click();
     await until(() => window.document.querySelector('.assembly-map'), 'Clicking an assembly did not open the part map');
     const oilFilter = [...window.document.querySelectorAll('.assembly-parts button')].find((element) => element.textContent.includes('Масляный фильтр'));
     oilFilter.click();
-    await until(() => window.document.querySelector('.products-toolbar h3')?.textContent.includes('фильтр масляный'), 'The part map did not select the search');
+    await until(() => window.document.querySelector('.products-toolbar h2')?.textContent.includes('фильтр масляный'), 'The part map did not select the search');
     await until(() => window.document.querySelector('.product-card .add-button:not([disabled])'), 'No sellable filter was found');
     window.document.querySelector('.product-card .add-button:not([disabled])').click();
     await until(() => Number(window.document.querySelector('.basket-button b')?.textContent) > 0, 'Adding a real product did not update the basket');

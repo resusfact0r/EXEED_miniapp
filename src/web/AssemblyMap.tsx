@@ -14,5 +14,5 @@ const sections: Record<string, { name: string; query: string; icon: string }[]> 
 export function AssemblyMap({ category, title, query, onSelect }: { category: string; title: string; query: string; onSelect: (query: string) => void }) {
   const entries = sections[category];
   if (!entries) return null;
-  return <div className="assembly-map"><div className="assembly-heading"><span>КАРТА УЗЛА <b>/ {title}</b></span><small>Нажмите на деталь</small></div><div className="assembly-parts">{entries.map((part, index) => <button key={part.query} className={query === part.query ? 'is-selected' : ''} onClick={() => onSelect(query === part.query ? '' : part.query)} aria-pressed={query === part.query}><span className="assembly-number">0{index + 1}</span><Icon name={part.icon} size={39}/><span>{part.name}</span><Icon name="plus" size={12}/></button>)}</div><p>Условная карта раздела. Заводские номера и применяемость уточняйте по VIN.</p></div>;
+  return <div className="assembly-map" aria-label={`Детали раздела: ${title}`}><div className="assembly-parts">{entries.map((part) => <button key={part.query} className={query === part.query ? 'is-selected' : ''} onClick={() => onSelect(query === part.query ? '' : part.query)} aria-pressed={query === part.query}><Icon name={part.icon} size={18}/><span>{part.name}</span></button>)}</div></div>;
 }

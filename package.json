@@ -15,8 +15,9 @@
     "predeploy": "npm run build",
     "prebuild": "node scripts/build-web-catalog.mjs",
     "predev": "node scripts/build-web-catalog.mjs",
-    "test:web": "node --test tests/web-catalog.test.mjs",
-    "test:bundle": "node --experimental-vm-modules --test tests/bundle-startup.test.mjs"
+    "test:web": "node --test tests/web-catalog.test.mjs tests/basket.test.mjs",
+    "test:bundle": "node --experimental-vm-modules --test tests/bundle-startup.test.mjs",
+    "test:browser": "node tests/browser-qa.mjs"
   },
   "dependencies": {
     "@telegram-apps/sdk-react": "^3.3.1",
@@ -29,6 +30,7 @@
     "react-router-dom": "^6.23.0"
   },
   "devDependencies": {
+    "@axe-core/puppeteer": "^4.14.0",
     "@eslint/js": "^9.23.0",
     "@types/node": "^20.12.11",
     "@types/react": "^18.2.0",

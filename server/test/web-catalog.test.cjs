@@ -5,10 +5,20 @@ const { ValidationPipe } = require('@nestjs/common');
 const { WebCatalogController } = require('../dist/catalog/web-catalog.controller');
 const { WebCatalogService } = require('../dist/catalog/web-catalog.service');
 const { PrismaService } = require('../dist/prisma/prisma.service');
+const { CatalogController } = require('../dist/catalog/catalog.controller');
+const { AdminCatalogController } = require('../dist/catalog/admin-catalog.controller');
+const { CartController } = require('../dist/cart/cart.controller');
+const { OrdersController } = require('../dist/orders/orders.controller');
+const { CatalogService } = require('../dist/catalog/catalog.service');
+const { CartService } = require('../dist/cart/cart.service');
+const { OrdersService } = require('../dist/orders/orders.service');
+const { TelegramAuthGuard } = require('../dist/common/guards/telegram-auth.guard');
+const { AdminAuthGuard } = require('../dist/common/guards/admin-auth.guard');
 
 let app, origin, reads = 0;
 before(async () => {
-  const module = await Test.createTestingModule({ controllers: [WebCatalogController], providers: [WebCatalogService, {
+  const module = await Test.createTestingModule({ controllers: [WebCatalogController, CatalogController, AdminCatalogController, CartController, OrdersController], providers: [WebCatalogService, TelegramAuthGuard, AdminAuthGuard,
+    { provide: CatalogService, useValue: {} }, { provide: CartService, useValue: {} }, { provide: OrdersService, useValue: {} }, {
     provide: PrismaService, useValue: { product: { findMany: async (args) => {
       reads++;
       assert.equal(args.where.isActive, true);
@@ -24,6 +34,25 @@ before(async () => {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
   await app.listen(0, '127.0.0.1');
   origin = await app.getUrl();
+});
+
+test('public browsing does not grant access to private cart, orders, admin or Telegram catalog routes', async () => {
+  for (const path of ['/api/cart', '/api/orders', '/api/admin/products', '/api/catalog/search']) {
+    assert.equal((await fetch(origin + path)).status, 401, path);
+  }
+  for (const path of ['/api/cart/items', '/api/orders', '/api/admin/products']) {
+    assert.equal((await fetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401, path);
+  }
+  assert.equal((await fetch(`${origin}/api/admin/products`, { headers: { 'x-admin-token': 'invalid' } })).status, 401);
+});
+
+test('malformed paging and search input cannot bypass validation', async () => {
+  for (const query of ['page=1.5', 'pageSize=0', 'page=NaN', 'query=' + 'a'.repeat(201), 'brand=' + 'b'.repeat(51)]) {
+    assert.equal((await fetch(`${origin}/api/web/products?${query}`)).status, 400, query);
+  }
+  const response = await fetch(`${origin}/api/web/products?page=2&pageSize=1&sort=price-desc`);
+  assert.equal(response.status, 200);
+  const body = await response.json(); assert.equal(body.total, 2); assert.equal(body.items[0].code, 'A001');
 });
 after(async () => { await app?.close(); });
 

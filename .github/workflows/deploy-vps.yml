@@ -37,6 +37,18 @@ jobs:
           npm run build
           npm run test:web
           npm run test:bundle
+      - name: Browser QA, mobile layouts and accessibility
+        run: npm run test:browser
+      - name: Save browser QA report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-qa-${{ github.sha }}
+          path: |
+            work/qa/*.json
+            work/qa/*.png
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Install and test backend
         working-directory: server
         run: |
