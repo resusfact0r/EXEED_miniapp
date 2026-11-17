@@ -279,13 +279,13 @@ try {
 
   await scenario('guest places pickup order and reopens it after reload',()=>fixture({mode:'live',guestCheckout:true,width:390,mobile:true},async(page,state)=>{
     await ready(page);await page.click('.product-card .add-button:not([disabled])');await page.click('.basket-button');
-    await page.$eval('dialog button',buttons=>buttons.find(b=>b.textContent==='Оформить на сайте').click());
+    await page.$$eval('dialog button',buttons=>buttons.find(b=>b.textContent==='Оформить на сайте').click());
     await page.waitForSelector('input[name=name]');await page.type('input[name=name]','Тест Покупатель');await page.type('input[name=phone]','79990000000');
     await page.click('.checkout-check input');await page.click('input[name=consent]');await page.click('.checkout-form button[type=submit]');
     await page.waitForFunction(()=>document.querySelector('dialog h3')?.textContent==='Заказ W77');
     assert.equal(state.submitted.method,'pickup');assert.equal(state.submitted.exactArticle,true);
     assert.ok(!('price' in state.submitted.lines[0]));await page.reload({waitUntil:'networkidle0'});
-    await page.$eval('button',buttons=>buttons.find(b=>b.textContent==='Мои заказы').click());
+    await page.$$eval('button',buttons=>buttons.find(b=>b.textContent==='Мои заказы').click());
     await page.click('dialog button.button-secondary');await page.waitForFunction(()=>document.querySelector('dialog h3')?.textContent==='Заказ W77');
   }));
 
