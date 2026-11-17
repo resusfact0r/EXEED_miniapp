@@ -191,3 +191,38 @@ model PriceImport {
 
   @@index([messageUid])
 }
+
+// Guest orders use a random per-order access key, separate from Telegram identities.
+model WebOrder {
+  number         Int         @id @default(autoincrement())
+  accessHash     String      @unique
+  requestHash    String
+  state          String
+  name           String
+  phone          String
+  vin            String?
+  items          Json
+  goodsCents     Int
+  deliveryCents  Int?
+  city           Int?
+  point          String?
+  address        String
+  parcel         Json?
+  attempt        Int         @default(1)
+  paymentSince   DateTime?
+  paymentId      String?     @unique
+  paymentUrl     String?
+  shipmentId     String?
+  tracking       String?
+  labelId        String?
+  carrierStatus  String?
+  claimHash      String?     @unique
+  claimUntil     DateTime?
+  chat           String?
+  notice         String?
+  checkedAt      DateTime    @default(now())
+  consentAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([state, checkedAt])
+}

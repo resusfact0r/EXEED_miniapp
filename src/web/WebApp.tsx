@@ -1,3 +1,6 @@
+import { Checkout } from './Checkout';
+import { Warehouse } from './Warehouse';
+import { historyList } from './orders';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { CarMap } from './CarMap';
 import { AssemblyMap } from './AssemblyMap';
@@ -6,7 +9,7 @@ import { findProduct, findProducts, loadCatalog, money, supportUrl, type Catalog
 import { addToBag, changeBagQuantity, maxQuantity, parseSavedBag, storageKey, type BagItem } from './basket';
 import './web.css';
 
-type Modal = 'cart' | 'help' | 'delivery' | null;
+type Modal = 'checkout' | 'orders' | 'cart' | 'help' | 'delivery' | null;
 const number = (value: number) => new Intl.NumberFormat('ru-RU').format(value);
 const emptyFilters: WebFilters = { brand: '', model: '', category: '', query: '', page: 1, pageSize: 12, sort: 'name', inStock: false };
 
@@ -45,6 +48,9 @@ function Dialog({ title, children, onClose, feedback }: { title: string; childre
 }
 
 export function WebApp() {
+  return new URLSearchParams(location.search).has('warehouse') ? <Warehouse/> : <Store/>;
+}
+function Store() {
   const [catalog, setCatalog] = useState<CatalogSession>();
   const [filters, setFilters] = useState<WebFilters>(initialFilters);
   const [search, setSearch] = useState(filters.query ?? '');
@@ -55,7 +61,9 @@ export function WebApp() {
   const [retry, setRetry] = useState(0);
   const [bag, setBag] = useState<BagItem[]>(readBag);
   const bagRef = useRef(bag);
-  const [modal, setModal] = useState<Modal>(null);
+  const returning=Number(new URLSearchParams(location.search).get('webOrder')) || undefined;
+  const [selectedOrder,setSelectedOrder]=useState<number|undefined>(returning);
+  const [modal,setModal]=useState<Modal>(returning?'checkout':null);
   const [detail, setDetail] = useState<NavigationProduct | null>(null);
   const [toast, setToast] = useState('');
   const detailRequest = useRef(0);
@@ -145,7 +153,7 @@ export function WebApp() {
     <a className="skip-link" href="#catalog">Перейти к деталям</a>
     <header className="site-header"><div className="container header-content">
       <a className="wordmark" href={location.pathname} aria-label="EXEED Friends — главная">EXEED<span>.</span><small>FRIENDS</small></a>
-      <div className="header-actions"><button className="help-link" aria-label="Подбор по VIN" onClick={() => openModal('help')}><Icon name="shield" size={18}/><span>Подбор по VIN</span></button><button className="basket-button" onClick={() => openModal('cart')}><Icon name="cart" size={20}/><span>Корзина</span><b>{itemCount}</b></button></div>
+      <div className="header-actions">{historyList().length>0 && <button className="text-link" onClick={()=>openModal('orders')}>Мои заказы</button>}<button className="help-link" aria-label="Подбор по VIN" onClick={() => openModal('help')}><Icon name="shield" size={18}/><span>Подбор по VIN</span></button><button className="basket-button" onClick={() => openModal('cart')}><Icon name="cart" size={20}/><span>Корзина</span><b>{itemCount}</b></button></div>
     </div></header>
 
     <main className="container">
@@ -192,9 +200,12 @@ export function WebApp() {
       <button className="button full-width" disabled={detail.stockQty < detail.packQty} onClick={() => add(detail)}><Icon name="cart" size={19}/>Добавить в корзину</button><button className="button button-secondary full-width" onClick={() => { const params = new URLSearchParams(location.search); params.set('part', detail.code); void copy(`${location.origin}${location.pathname}?${params}`, 'Ссылка на деталь скопирована'); }}>Поделиться<Icon name="copy" size={16}/></button>
     </Dialog>}
 
+    {modal === 'orders' && <Dialog title="Мои заказы" feedback="" onClose={()=>setModal(null)}><div className="checkout-form">{historyList().map(o=><button className="button button-secondary" key={o.number} onClick={()=>{setSelectedOrder(o.number);openModal('checkout');}}>Заказ W{o.number}</button>)}</div></Dialog>}
+    {modal === 'checkout' && <Dialog title="Оформление заказа" feedback="" onClose={()=>{setModal(null);const u=new URL(location.href);u.searchParams.delete('webOrder');history.replaceState(null,'',u);}}><Checkout bag={bag} number={selectedOrder} onPlaced={()=>mutateBag(()=>[])}/></Dialog>}
     {modal === 'cart' && <Dialog title={`Корзина${itemCount ? ` · ${itemCount}` : ''}`} feedback={toast} onClose={() => setModal(null)}>{bag.length ? <>
       <div className="bag-lines">{bag.map(({ product, quantity }) => <div className="bag-line" key={product.code}><div className="bag-line-info"><small>{product.code}</small><strong>{product.name}</strong><div className="bag-line-controls"><div className="quantity-stepper"><button onClick={() => mutateBag((current) => changeBagQuantity(current, product.code, -1))} aria-label={`Уменьшить количество ${product.code}`}><Icon name="minus" size={15}/></button><span>{quantity}</span><button disabled={quantity + product.packQty > maxQuantity(product)} onClick={() => mutateBag((current) => changeBagQuantity(current, product.code, 1))} aria-label={`Увеличить количество ${product.code}`}><Icon name="plus" size={15}/></button></div><span>{money(Number(product.price) * quantity)}</span></div></div><button className="icon-button" aria-label={`Удалить ${product.code}`} onClick={() => mutateBag((current) => current.filter((line) => line.product.code !== product.code))}><Icon name="close" size={17}/></button></div>)}</div>
-      <div className="bag-total"><span>Ориентировочно</span><strong>{money(subtotal)}</strong></div><p className="dialog-note">Менеджер проверит совместимость, цену и доставку. Список в корзине ещё не является заказом.</p>
+      <div className="bag-total"><span>Ориентировочно</span><strong>{money(subtotal)}</strong></div><p className="dialog-note">Стоимость и наличие проверим при оформлении.</p>
+      {source==='live' && <button className="button full-width" onClick={()=>{setSelectedOrder(undefined);openModal('checkout');}}>Оформить на сайте</button>}
       {draftText !== requestText && <p className="dialog-note">Сохраните список кнопкой ниже и пришлите его менеджеру после перехода в Telegram.</p>}
       {requestText.length > 3500 ? <button className="button button-secondary full-width" onClick={downloadSelection}>Скачать список деталей</button> : <button className="button button-secondary full-width" onClick={() => void copy(requestText, 'Список деталей скопирован')}>Скопировать список<Icon name="copy" size={16}/></button>}
       <a className="button full-width" href={`${supportUrl}?text=${encodeURIComponent(draftText)}`} target="_blank" rel="noreferrer">Обсудить заказ в Telegram<Icon name="arrow" size={18}/></a>

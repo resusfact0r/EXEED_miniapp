@@ -8,6 +8,7 @@ import { BotModule } from './bot/bot.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { CartModule } from './cart/cart.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { WebCheckoutModule } from './web-checkout/module';
 import { OrdersModule } from './orders/orders.module';
 import { PriceSyncModule } from './price-sync/price-sync.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
@@ -34,6 +35,7 @@ class HealthController {
     CartModule,
     DeliveryModule,
     OrdersModule,
+    WebCheckoutModule,
     PriceSyncModule,
     MonitoringModule,
     LegalModule,

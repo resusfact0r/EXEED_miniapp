@@ -65,6 +65,16 @@ async function fixture(options, run) {
       if (state.blockChunk && /\/WebApp-.*\.js$/.test(url.pathname)) return request.respond({ status: 503, body: 'QA unavailable chunk' });
       if (url.pathname.startsWith('/api/web/')) {
         state.requests.push(url.pathname + url.search);
+        if (state.guestCheckout && url.pathname.startsWith('/api/web/checkout/')) {
+          if (url.pathname.endsWith('/options')) return json({pickup:'Точка выдачи',cdek:true,legal:false});
+          if (url.pathname.endsWith('/order')) return json(state.guestOrder||{},state.guestOrder?200:404);
+          if (url.pathname.endsWith('/orders')) {
+            const dto=JSON.parse(request.postData());state.submitted=dto;
+            const items=dto.lines.map(line=>({...line,cents:12345,name:'Деталь'}));
+            state.guestOrder={number:77,items,state:'QUOTED',goodsCents:12345,deliveryCents:0,method:'pickup',address:'Точка выдачи',canPay:true};
+            return json(state.guestOrder,201);
+          }
+        }
         if (state.mode === 'snapshot') return json({ message: 'Not found' }, 404);
         if (url.pathname === '/api/web/catalog') return json(state.mode === 'invalid-metadata' ? { total: 'bad', brands: [null] } : snapshot.metadata);
         if (url.pathname === '/api/web/products') {
@@ -265,6 +275,18 @@ try {
     await ready(page); await page.click('.basket-button'); await page.waitForSelector('dialog[open]'); await page.keyboard.press('Escape');
     assert.equal(await page.evaluate(() => document.activeElement.className), 'basket-button');
     await page.keyboard.press('Enter'); await page.waitForSelector('dialog[open]');
+  }));
+
+  await scenario('guest places pickup order and reopens it after reload',()=>fixture({mode:'live',guestCheckout:true,width:390,mobile:true},async(page,state)=>{
+    await ready(page);await page.click('.product-card .add-button:not([disabled])');await page.click('.basket-button');
+    await page.$eval('dialog button',buttons=>buttons.find(b=>b.textContent==='Оформить на сайте').click());
+    await page.waitForSelector('input[name=name]');await page.type('input[name=name]','Тест Покупатель');await page.type('input[name=phone]','79990000000');
+    await page.click('.checkout-check input');await page.click('input[name=consent]');await page.click('.checkout-form button[type=submit]');
+    await page.waitForFunction(()=>document.querySelector('dialog h3')?.textContent==='Заказ W77');
+    assert.equal(state.submitted.method,'pickup');assert.equal(state.submitted.exactArticle,true);
+    assert.ok(!('price' in state.submitted.lines[0]));await page.reload({waitUntil:'networkidle0'});
+    await page.$eval('button',buttons=>buttons.find(b=>b.textContent==='Мои заказы').click());
+    await page.click('dialog button.button-secondary');await page.waitForFunction(()=>document.querySelector('dialog h3')?.textContent==='Заказ W77');
   }));
 
   await scenario('cart mobile layout, clipboard list, draft link and accessibility', () => fixture({ width: 390, height: 844, mobile: true }, async (page) => {

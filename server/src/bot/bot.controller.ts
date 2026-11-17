@@ -17,7 +17,9 @@ export class BotController {
     @Headers('x-telegram-bot-api-secret-token') secretToken: string | undefined,
   ) {
     const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (expected && secretToken !== expected) {
+    const message=update.message as {text?:string}|undefined;
+    const webSubscription=/^\/start(?:@\w+)?\s+w_/.test(message?.text?.trim() || '');
+    if ((expected && secretToken !== expected) || (webSubscription && !expected)) {
       throw new UnauthorizedException();
     }
 

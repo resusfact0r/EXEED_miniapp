@@ -258,3 +258,12 @@ svg { flex-shrink: 0; }
   .toast { font-size: 11px; padding: 12px 16px; bottom: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; scroll-behavior: auto !important; transition: none !important; } }
+
+.checkout-form { display:grid; gap:14px; margin:16px 0; }
+.checkout-form label { display:grid; gap:5px; font-weight:600; }
+.checkout-form input:not([type=checkbox]), .checkout-form select { width:100%; padding:10px; min-height:44px; border:1px solid #999; border-radius:6px; background:white; color:#171717; font:inherit; }
+.checkout-form .checkout-check { display:flex; align-items:center; gap:10px; font-weight:400; }
+.checkout-form p, .checkout-form ul { margin:0; }
+.checkout-form [role=alert], .warehouse [role=alert] { color:#922323; }
+.warehouse { max-width:740px; padding:24px; }
+.warehouse form+form { border-top:1px solid #bbb; padding-top:20px; }
