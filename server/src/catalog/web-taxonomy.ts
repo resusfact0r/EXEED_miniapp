@@ -1,4 +1,6 @@
-/** Text navigation only. These labels never establish OEM fitment or VIN compatibility. */
+import { articleApplications, type CatalogApplication } from './article-applications';
+
+/** Catalog navigation; final vehicle compatibility still requires VIN verification. */
 export const BRAND_RULES = [
   { name: 'EXEED', aliases: ['EXEED', 'ЭКСИД'], models: ['TXL', 'VX', 'LX', 'RX'] },
   { name: 'CHERY', aliases: ['CHERY', 'ЧЕРИ', 'TIGGO', 'ARRIZO', 'AMULET', 'KIMO', 'INDIS', 'BONUS', 'VERY'], models: ['Tiggo 9', 'Tiggo 8 Pro Max', 'Tiggo 8 Pro', 'Tiggo 8', 'Tiggo 7 Pro Max', 'Tiggo 7 Pro', 'Tiggo 7', 'Tiggo 4 Pro', 'Tiggo 4', 'Tiggo 3', 'Tiggo 2 Pro', 'Tiggo 2', 'Arrizo 8', 'Arrizo 7', 'Arrizo 5', 'Amulet', 'Kimo', 'Indis', 'Bonus', 'Very'] },
@@ -36,7 +38,7 @@ const containsLabel = (text: string, label: string) => {
   return pattern.test(text);
 };
 
-export function classifyProduct(product: { name: string; description?: string | null }) {
+export function classifyProduct(product: { code?: string; name: string; description?: string | null }) {
   const text = `${product.name} ${product.description ?? ''}`;
   const brands: string[] = [];
   const models: string[] = [];
@@ -53,6 +55,16 @@ export function classifyProduct(product: { name: string; description?: string | 
   }
   const folded = text.toLowerCase().replace(/ё/g, 'е');
   const categories = WEB_CATEGORIES.filter((category) => category.terms.some((term) => folded.includes(term.replace(/ё/g, 'е')))).map((category) => category.id);
+  const catalogApplications = articleApplications(product.code);
+  if (catalogApplications) {
+    // Use only the reviewed, explicitly named revisions for these articles. A generic
+    // VX in the supplier title must not silently expand a VX FL source to older VX.
+    return {
+      brands: [...new Set(catalogApplications.map((application) => application.brand))],
+      models: [...new Set(catalogApplications.map((application) => `${application.brand}:${application.model}`))],
+      categories, catalogApplications,
+    };
+  }
   return { brands, models, categories };
 }
 
@@ -68,6 +80,7 @@ export interface NavigationProduct {
   brands: string[];
   models: string[];
   categories: string[];
+  catalogApplications?: CatalogApplication[];
 }
 
 export interface WebFilters {
@@ -84,12 +97,22 @@ export interface WebFilters {
 export function filterWebProducts(products: NavigationProduct[], filters: WebFilters) {
   const words = (filters.query ?? '').trim().toLocaleLowerCase('ru').split(/\s+/).filter(Boolean).slice(0, 8);
   const compact = (value: string) => value.replace(/[-.\s/]/g, '').toLowerCase();
+  const matchesWords = (product: NavigationProduct) => {
+    const baseMatch = (word: string) => product.name.toLowerCase().includes(word) || product.code.toLowerCase().includes(word) || compact(product.code).includes(compact(word));
+    if (words.every(baseMatch)) return true;
+    // Keep each vehicle together: EXEED from one application and C5 from another
+    // must never manufacture an EXEED C5 association.
+    return product.catalogApplications?.some((application) => {
+      const label = `${application.brand} ${application.model} ${application.configuration}`.toLowerCase();
+      return words.every((word) => baseMatch(word) || label.includes(word));
+    }) ?? false;
+  };
   const result = products.filter((product) =>
     (!filters.brand || product.brands.includes(filters.brand)) &&
     (!filters.model || product.models.includes(`${filters.brand}:${filters.model}`)) &&
     (!filters.category || product.categories.includes(filters.category)) &&
     (!filters.inStock || product.stockQty >= product.packQty) &&
-    words.every((word) => product.name.toLowerCase().includes(word) || product.code.toLowerCase().includes(word) || compact(product.code).includes(compact(word))),
+    matchesWords(product),
   );
   const exact = compact(filters.query ?? '');
   result.sort((a, b) => {
@@ -105,12 +128,16 @@ export function filterWebProducts(products: NavigationProduct[], filters: WebFil
 }
 
 export function webMetadata(products: NavigationProduct[]) {
+  const knownBrands = BRAND_RULES.map((brand) => brand.name);
+  const extraBrands = [...new Set(products.flatMap((product) => product.brands))].filter((name) => !knownBrands.includes(name)).sort();
   return {
     total: products.length,
     unclassified: products.filter((product) => product.brands.length === 0).length,
-    brands: BRAND_RULES.map((brand) => {
-      const items = products.filter((product) => product.brands.includes(brand.name));
-      return { name: brand.name, count: items.length, models: brand.models.filter((model) => items.some((product) => product.models.includes(`${brand.name}:${model}`))) };
+    brands: [...knownBrands, ...extraBrands].map((name) => {
+      const items = products.filter((product) => product.brands.includes(name));
+      const namedModels = BRAND_RULES.find((brand) => brand.name === name)?.models ?? [];
+      const models = [...new Set(items.flatMap((product) => product.models.filter((model) => model.startsWith(`${name}:`)).map((model) => model.slice(name.length + 1))))];
+      return { name, count: items.length, models: [...namedModels.filter((model) => models.includes(model)), ...models.filter((model) => !namedModels.includes(model)).sort((a, b) => a.localeCompare(b, 'ru'))] };
     }).filter((brand) => brand.count > 0),
     categories: WEB_CATEGORIES.map(({ id, name }) => ({ id, name, count: products.filter((product) => product.categories.includes(id)).length })),
   };

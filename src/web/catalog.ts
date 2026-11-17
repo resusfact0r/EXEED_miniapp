@@ -19,7 +19,12 @@ function validProduct(product: NavigationProduct) {
     && typeof product.price === 'string' && product.price.trim() && Number.isFinite(Number(product.price)) && Number(product.price) >= 0
     && Number.isSafeInteger(product.stockQty) && product.stockQty >= 0 && Number.isSafeInteger(product.packQty) && product.packQty >= 1
     && [product.brands, product.models, product.categories].every((values) => Array.isArray(values) && values.every((value) => typeof value === 'string'))
-    && (product.description == null || typeof product.description === 'string') && (product.imageUrl == null || typeof product.imageUrl === 'string'));
+    && (product.description == null || typeof product.description === 'string') && (product.imageUrl == null || typeof product.imageUrl === 'string')
+    && (product.catalogApplications === undefined || (Array.isArray(product.catalogApplications) && product.catalogApplications.length > 0
+      && product.catalogApplications.every((application) => application && typeof application.brand === 'string' && typeof application.model === 'string'
+        && typeof application.configuration === 'string' && typeof application.sourcePosition === 'string' && typeof application.checkedDate === 'string'
+        && typeof application.sourceUrl === 'string' && /^https:\/\/xn--80aagvgd7a1ae\.xn--p1acf\/catalog\/[A-Za-z0-9_%/-]+$/.test(application.sourceUrl)
+        && (application.modelYearFrom === undefined || (Number.isSafeInteger(application.modelYearFrom) && application.modelYearFrom >= 1886 && application.modelYearFrom <= 2200))))));
 }
 
 async function snapshot() {

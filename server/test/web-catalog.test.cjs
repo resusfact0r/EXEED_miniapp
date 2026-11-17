@@ -56,7 +56,7 @@ test('malformed paging and search input cannot bypass validation', async () => {
 });
 after(async () => { await app?.close(); });
 
-test('anonymous catalog exposes only active products and text-derived navigation', async () => {
+test('anonymous catalog exposes only active products and navigation labels', async () => {
   const response = await fetch(`${origin}/api/web/catalog`);
   assert.equal(response.status, 200);
   const data = await response.json();
@@ -76,4 +76,20 @@ test('public search validates parameters, composes filters and never returns pri
   assert.equal((await fetch(`${origin}/api/web/products/A001`)).status, 200);
   assert.equal((await fetch(`${origin}/api/web/orders`)).status, 404);
   assert.equal(reads, 1, 'repeated requests share a one-minute catalog cache');
+});
+
+test('live catalog service uses the reviewed article mapping and returns its scope and source', async () => {
+  const service = new WebCatalogService({ product: { findMany: async () => [
+    { id: 'source-a', code: '302001286AA', name: 'Впускной патрубок EXEED VX', price: { toString: () => '123.45' }, stockQty: 2, packQty: 1 },
+    { id: 'source-b', code: '302001286AB', name: 'Патрубок', price: { toString: () => '222.22' }, stockQty: 1, packQty: 1 },
+  ] } });
+  const result = await service.search({ brand: 'EXEED', model: 'VX FL' });
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0].price, '123.45');
+  assert.equal((await service.search({ brand: 'EXEED', model: 'VX' })).total, 0);
+  const application = result.items[0].catalogApplications.find((item) => item.model === 'VX FL');
+  assert.equal(application.modelYearFrom, 2024);
+  assert.match(application.configuration, /8AT/);
+  assert.ok(application.sourceUrl.endsWith('/302001286AA'));
+  assert.equal((await service.product('302001286AB')).catalogApplications, undefined);
 });

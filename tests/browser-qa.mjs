@@ -212,6 +212,27 @@ try {
     await fixture({ storageBlocked: true }, async (page) => { await ready(page); await page.click('.product-card .add-button:not([disabled])'); await page.waitForFunction(() => Number(document.querySelector('.basket-button b').textContent) > 0); });
   });
 
+  await scenario('reviewed article detail shows exact source, configuration and VX FL model year on mobile', () => fixture({ width: 390, mobile: true, path: '/?part=302001286AA' }, async (page) => {
+    await page.waitForSelector('dialog[open] .catalog-applications');
+    await page.click('.catalog-applications summary');
+    const applications = await page.$$eval('.catalog-applications li', (rows) => rows.map((row) => ({ text: row.textContent, url: row.querySelector('a').href })));
+    assert.ok(applications.some((item) => /EXEED VX FL/.test(item.text) && /8AT/.test(item.text) && /2024/.test(item.text)));
+    assert.ok(applications.every((item) => item.url.startsWith('https://xn--80aagvgd7a1ae.xn--p1acf/catalog/') && item.url.endsWith('/302001286AA')));
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await accessibility(page, 'accessibility-article-source.json');
+    await page.screenshot({ path: resolve(output, 'article-source-mobile.png'), fullPage: true });
+  }));
+
+  await scenario('reviewed model labels drive live and fallback catalog search', () => fixture({ mode: 'live', path: '/?brand=EXEED&model=VX%20FL&q=302001286AA' }, async (page) => {
+    await ready(page);
+    assert.equal(await page.$eval('#vehicle-model', (element) => element.value), 'VX FL');
+    assert.deepEqual(await codes(page), ['302001286AA']);
+    await page.select('#vehicle-brand', 'OMODA'); await settled(page);
+    await page.select('#vehicle-model', 'C5'); await settled(page);
+    await search(page, '155000158AA');
+    assert.deepEqual(await codes(page), ['155000158AA']);
+  }));
+
   await scenario('detail deep links, sharing, escape and focus restoration', () => fixture({ path: '/?part=501014147AA' }, async (page) => {
     await page.waitForSelector('dialog[open] .detail-code'); assert.equal(await page.$eval('.detail-code', (element) => element.textContent.trim()), '501014147AA');
     await page.click('.web-dialog .button-secondary'); await page.waitForFunction(() => Boolean(window.__qaCopied));

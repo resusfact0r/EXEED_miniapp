@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { loadTypeScript } from '../scripts/load-typescript.mjs';
 
 const { classifyProduct, filterWebProducts, webMetadata } = await loadTypeScript(new URL('../server/src/catalog/web-taxonomy.ts', import.meta.url));
 const { shouldOpenMiniApp } = await loadTypeScript(new URL('../src/web/launch.ts', import.meta.url));
-const product = (code, name, stockQty = 10, packQty = 1, price = '500') => ({ id: code, code, name, stockQty, packQty, price, ...classifyProduct({ name }) });
+const product = (code, name, stockQty = 10, packQty = 1, price = '500') => ({ id: code, code, name, stockQty, packQty, price, ...classifyProduct({ code, name }) });
 
 test('brand matching uses boundaries and keeps the most specific named model', () => {
   const item = classifyProduct({ name: 'Колодки CHERY TIGGO 7 PRO MAX' });
@@ -60,4 +61,70 @@ test('the production snapshot contains the full export and only finite retail pr
   assert.ok(products.every((item) => Number.isFinite(Number(item.price)) && Number(item.price) >= 0 && item.packQty >= 1));
   assert.ok(metadata.brands.every((brand) => brand.count > 0));
   assert.equal(products.find((item) => item.code === '501014147AA').price, '380.55');
+});
+
+test('every added vehicle has a matching fetched numbered row and full article suffix', async () => {
+  const raw = await readFile(new URL('../research/kitaiavto-2026-11-17/evidence.json', import.meta.url));
+  const evidence = JSON.parse(raw);
+  const registry = JSON.parse(await readFile(new URL('../server/src/catalog/article-applications.json', import.meta.url), 'utf8'));
+  assert.equal(registry.sourceEvidenceSha256, createHash('sha256').update(raw).digest('hex'));
+  const pages = new Map(evidence.documents.map((document) => [document.url, document]));
+  const corroborated = new Set(evidence.corroboratedArticleUrls);
+  const canonical = (value) => value.replace(/[-\s]/g, '').toUpperCase();
+  assert.equal(Object.keys(registry.articles).length, 1536);
+  for (const [code, references] of Object.entries(registry.articles)) {
+    assert.ok(references.length > 0);
+    for (const [profileIndex, position, sourceArticle] of references) {
+      const profile = registry.profiles[profileIndex];
+      assert.equal(canonical(code), sourceArticle);
+      assert.ok(pages.get(profile.schemeUrl)?.rows.some((row) => row.position === position && canonical(row.article) === sourceArticle), code);
+      assert.ok(corroborated.has(`${profile.schemeUrl}/${sourceArticle}`), code);
+      if (profile.brand === 'EXEED' && profile.model === 'VX FL') assert.equal(profile.modelYearFrom, 2024);
+    }
+  }
+});
+
+test('catalog-backed model filters and searches preserve individual brand-model pairs', () => {
+  const item = product('155000158AA', 'Выпускной клапан топливопровода');
+  const apps = item.catalogApplications;
+  assert.ok(apps.some((app) => app.brand === 'OMODA' && app.model === 'C5' && app.configuration.includes('1.6')));
+  assert.equal(filterWebProducts([item], { brand: 'OMODA', model: 'C5', query: 'клапан' }).total, 1);
+  assert.equal(filterWebProducts([item], { query: 'клапан OMODA C5' }).total, 1);
+  assert.equal(filterWebProducts([item], { query: 'EXEED S5 GT' }).total, 0);
+  assert.equal(filterWebProducts([item], { brand: 'EXEED', model: 'C5' }).total, 0);
+});
+
+test('VX FL scope does not become generic VX, and unknown suffixes never inherit a mapping', () => {
+  const item = product('302001286AA', 'Впускной патрубок EXEED VX');
+  assert.ok(item.models.includes('EXEED:VX FL'));
+  assert.ok(!item.models.includes('EXEED:VX'));
+  assert.equal(filterWebProducts([item], { brand: 'EXEED', model: 'VX' }).total, 0);
+  for (const code of ['302001286AAX', 'X302001286AA', '0302001286AA', '__proto__', 'constructor']) {
+    assert.equal(classifyProduct({ code, name: 'Патрубок' }).catalogApplications, undefined, code);
+    assert.deepEqual(classifyProduct({ code, name: 'Патрубок' }).models, [], code);
+  }
+  const pipe = product('302000129AA', 'Патрубок');
+  assert.ok(pipe.catalogApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.6')));
+  assert.ok(!pipe.models.includes('CHERY:Tiggo 7 Pro'));
+  assert.ok(!pipe.catalogApplications.some((application) => application.brand === 'OMODA' && application.model === 'C5' && application.configuration.includes('1.5')));
+  assert.equal(classifyProduct({ code: '302001163AA', name: 'Патрубок' }).catalogApplications, undefined);
+});
+
+test('all unapproved snapshot articles retain their previous text navigation', async () => {
+  const { products } = JSON.parse(await readFile(new URL('../public/web-catalog.json', import.meta.url), 'utf8'));
+  let untouched = 0;
+  for (const item of products) {
+    const actual = classifyProduct(item);
+    const previous = classifyProduct({ name: item.name, description: item.description });
+    assert.deepEqual(actual.categories, previous.categories, item.code);
+    if (!actual.catalogApplications) { assert.deepEqual(actual, previous, item.code); untouched++; }
+  }
+  assert.ok(untouched > 20000);
+});
+
+test('metadata includes explicit revisions and new makes only when products carry them', () => {
+  const item = product('302001286AA', 'Патрубок');
+  const metadata = webMetadata([item]);
+  assert.ok(metadata.brands.find((brand) => brand.name === 'EXEED').models.includes('VX FL'));
+  assert.ok(!metadata.brands.find((brand) => brand.name === 'EXEED').models.includes('VX'));
 });
