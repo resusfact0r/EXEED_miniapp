@@ -5,44 +5,70 @@ export type CatalogMetadata = ReturnType<typeof webMetadata>;
 type Snapshot = { sourceDate: string | null; metadata: CatalogMetadata; products: NavigationProduct[] };
 const base = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '');
 let snapshotPromise: Promise<Snapshot> | undefined;
-let mode: 'live' | 'snapshot' = 'live';
+export type CatalogSource = 'live' | 'snapshot';
+export type CatalogSession = { metadata: CatalogMetadata; source: CatalogSource; sourceDate: string | null };
+
+function validMetadata(data: CatalogMetadata) {
+  return Boolean(data && Number.isSafeInteger(data.total) && data.total >= 0 && Array.isArray(data.brands) && Array.isArray(data.categories)
+    && data.brands.every((brand) => brand && typeof brand.name === 'string' && Number.isSafeInteger(brand.count) && Array.isArray(brand.models) && brand.models.every((model) => typeof model === 'string'))
+    && data.categories.every((category) => category && typeof category.id === 'string' && typeof category.name === 'string' && Number.isSafeInteger(category.count)));
+}
+
+function validProduct(product: NavigationProduct) {
+  return Boolean(product && typeof product.id === 'string' && typeof product.code === 'string' && typeof product.name === 'string'
+    && typeof product.price === 'string' && product.price.trim() && Number.isFinite(Number(product.price)) && Number(product.price) >= 0
+    && Number.isSafeInteger(product.stockQty) && product.stockQty >= 0 && Number.isSafeInteger(product.packQty) && product.packQty >= 1
+    && [product.brands, product.models, product.categories].every((values) => Array.isArray(values) && values.every((value) => typeof value === 'string'))
+    && (product.description == null || typeof product.description === 'string') && (product.imageUrl == null || typeof product.imageUrl === 'string'));
+}
 
 async function snapshot() {
   snapshotPromise ??= fetch(`${import.meta.env.BASE_URL}web-catalog.json`).then(async (response) => {
     if (!response.ok) throw new Error('Не удалось загрузить каталог. Попробуйте обновить страницу.');
-    return response.json() as Promise<Snapshot>;
+    const data = await response.json() as Snapshot;
+    if (!Array.isArray(data.products) || !data.products.every(validProduct) || !validMetadata(data.metadata)) throw new Error('Не удалось прочитать каталог. Попробуйте ещё раз.');
+    return data;
   }).catch((error) => { snapshotPromise = undefined; throw error; });
   return snapshotPromise;
 }
 
 async function live<T>(path: string): Promise<T> {
-  const response = await fetch(`${base}/web/${path}`, { signal: AbortSignal.timeout(5000) });
-  if (!response.ok) throw new Error(`Catalog HTTP ${response.status}`);
-  return response.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(`${base}/web/${path}`, { signal: controller.signal });
+    if (!response.ok) throw new Error(`Catalog HTTP ${response.status}`);
+    return await response.json();
+  } finally { clearTimeout(timeout); }
 }
 
-export async function loadCatalog() {
+export async function loadCatalog(): Promise<CatalogSession> {
   try {
     const metadata = await live<CatalogMetadata>('catalog');
-    if (!Array.isArray(metadata.brands) || !Array.isArray(metadata.categories) || typeof metadata.total !== 'number') throw new Error('Invalid catalog metadata');
-    mode = 'live';
+    if (!validMetadata(metadata)) throw new Error('Invalid catalog metadata');
     return { metadata, source: 'live' as const, sourceDate: null };
   }
-  catch { mode = 'snapshot'; const data = await snapshot(); return { metadata: data.metadata, source: 'snapshot' as const, sourceDate: data.sourceDate }; }
+  catch { const data = await snapshot(); return { metadata: data.metadata, source: 'snapshot' as const, sourceDate: data.sourceDate }; }
 }
 
-export async function findProducts(filters: WebFilters) {
-  if (mode === 'live') {
+export async function findProducts(filters: WebFilters, source: CatalogSource) {
+  if (source === 'live') {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
     // A live outage must be visible, rather than silently showing old stock as live.
-    return live<ReturnType<typeof filterWebProducts>>(`products?${params}`);
+    const result = await live<ReturnType<typeof filterWebProducts>>(`products?${params}`);
+    if (!Array.isArray(result.items) || !result.items.every(validProduct) || !Number.isSafeInteger(result.total) || result.total < 0) throw new Error('Некорректный ответ каталога');
+    return result;
   }
   return filterWebProducts((await snapshot()).products, filters);
 }
 
-export async function findProduct(code: string) {
-  if (mode === 'live') return live<NavigationProduct>(`products/${encodeURIComponent(code)}`);
+export async function findProduct(code: string, source: CatalogSource) {
+  if (source === 'live') {
+    const product = await live<NavigationProduct>(`products/${encodeURIComponent(code)}`);
+    if (!validProduct(product)) throw new Error('Некорректный ответ каталога');
+    return product;
+  }
   const product = (await snapshot()).products.find((item) => item.code.toLowerCase() === code.toLowerCase());
   if (!product) throw new Error('Деталь не найдена');
   return product;

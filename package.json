@@ -15,7 +15,9 @@
     "predeploy": "npm run build",
     "prebuild": "node scripts/build-web-catalog.mjs",
     "predev": "node scripts/build-web-catalog.mjs",
-    "test:web": "node --test tests/web-catalog.test.mjs"
+    "test:web": "node --test tests/web-catalog.test.mjs tests/basket.test.mjs",
+    "test:bundle": "node --experimental-vm-modules --test tests/bundle-startup.test.mjs",
+    "test:browser": "node tests/browser-qa.mjs"
   },
   "dependencies": {
     "@telegram-apps/sdk-react": "^3.3.1",
@@ -41,11 +43,13 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "gh-pages": "^6.1.1",
     "globals": "^15.2.0",
+    "jsdom": "^26.1.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.28.0",
     "vite": "^6.2.4",
     "vite-plugin-mkcert": "^1.17.8",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "axe-core": "4.10.3"
   },
   "description": "Telegram Mini App для поиска и заказа автозапчастей по артикулу: корзина, самовывоз/доставка (СДЭК, Яндекс.Доставка), оплата по QR-ссылке или безналично для юрлиц. Существующий Telegram-бот (регистрация/авторизация по телефону) — отдельный проект, не входит в этот репозиторий; здесь реализована сама торговая логика внутри miniapp и backend, который её обслуживает.",
   "main": "eslint.config.js",

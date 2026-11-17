@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" fill="none">
+  <title>Автомобиль, вид сбоку</title>
+  <g stroke="#858b90" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M145 238V164Q145 145 164 141L253 126L323 71Q336 61 354 61H536Q554 61 569 72L644 129L739 145Q758 148 765 165L778 199V225Q778 238 763 238Z" fill="#f7f8f9"/>
+    <path d="M275 126L332 79Q339 74 352 74H417V126ZM431 74H534Q546 74 555 82L611 126H431Z" fill="#e9edf0" stroke="#a3abb2"/>
+    <path d="M431 128V231M274 141H619M291 144V224M621 146L603 226M155 180H203M733 160H757M714 226H764" stroke="#c1c7cc"/>
+    <path d="M146 173H161V191H146M747 167H766L770 181H749ZM433 147H449M580 147H596" stroke="#929ca4"/>
+    <path d="M262 126H617M313 230H592M164 224H204M706 225H764" stroke="#aeb6bd"/>
+    <path d="M615 122L630 120L641 131L621 134Z" fill="#e9edf0"/>
+    <path d="M342 57H526" stroke="#c4cbd0"/>
+  </g>
+  <g fill="white"><circle cx="260" cy="238" r="54"/><circle cx="650" cy="238" r="54"/></g>
+  <g stroke="#aab3ba" stroke-width="2"><path d="M206 238a54 54 0 0 1 108 0M596 238a54 54 0 0 1 108 0"/></g>
+  <g stroke="#5e6972" stroke-width="2" fill="#f2f4f5"><circle cx="260" cy="238" r="43"/><circle cx="650" cy="238" r="43"/></g>
+  <g stroke="#9da7af" stroke-width="1.6" fill="white">
+    <circle cx="260" cy="238" r="27"/><circle cx="650" cy="238" r="27"/>
+    <path d="M260 211V265M233 238H287M241 219L279 257M241 257L279 219M650 211V265M623 238H677M631 219L669 257M631 257L669 219"/>
+    <circle cx="260" cy="238" r="7"/><circle cx="650" cy="238" r="7"/>
+  </g>
+  <path d="M154 283H748" stroke="#edf0f2" stroke-width="2"/>
+</svg>
