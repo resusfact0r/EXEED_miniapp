@@ -114,7 +114,8 @@ test('all unapproved snapshot articles retain their previous text navigation', a
   const { products } = JSON.parse(await readFile(new URL('../public/web-catalog.json', import.meta.url), 'utf8'));
   const base = JSON.parse(await readFile(new URL('../server/src/catalog/article-applications.json', import.meta.url), 'utf8'));
   const reviewed = JSON.parse(await readFile(new URL('../server/src/catalog/reviewed-applications.json', import.meta.url), 'utf8'));
-  const approved = new Set([...Object.keys(base.articles), ...Object.keys(reviewed.articles)]);
+  const platforms = JSON.parse(await readFile(new URL('../server/src/catalog/platform-applications.json', import.meta.url), 'utf8'));
+  const approved = new Set([...Object.keys(base.articles), ...Object.keys(reviewed.articles), ...Object.keys(platforms.articles)]);
   let untouched = 0;
   for (const item of products) {
     const actual = classifyProduct(item);
@@ -200,5 +201,19 @@ test('manufacturer scopes separate powertrains, hybrids and the VX 2024 revision
   assert.match(revision.configuration, /M36TFL.*8AT/);
   for (const code of ['302001163AB-UNREVIEWED', 'X110100017AA', '123000090AA-UNREVIEWED']) {
     assert.equal(classifyProduct({ code, name: 'Деталь' }).vehicleApplications, undefined, code);
+  }
+});
+
+test('platform review requires a witnessed full OEM number and keeps provenance outside the product', async () => {
+  const records = JSON.parse(await readFile(new URL('../server/src/catalog/platform-applications.json', import.meta.url)));
+  for (const [code, rows] of Object.entries(records.articles)) {
+    const detail = classifyProduct({ code, name: 'Деталь' });
+    assert.deepEqual(detail.vehicleApplications, rows.map(row => row.application));
+    for (const row of rows) {
+      assert.equal(row.article.replace(/[-\s]/g, '').toUpperCase(), code.replace(/[-\s]/g, '').toUpperCase());
+      assert.match(row.witness, /^[a-f0-9]{64}$/);
+      if (row.platform === 'M36TFL') assert.equal(row.application.modelYearFrom, 2024);
+    }
+    assert.equal(classifyProduct({ code: code + 'UNREVIEWED', name: 'Деталь' }).vehicleApplications, undefined);
   }
 });

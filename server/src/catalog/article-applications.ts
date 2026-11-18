@@ -1,3 +1,4 @@
+import platformData from './platform-applications.json';
 import data from './article-applications.json';
 import reviewedData from './reviewed-applications.json';
 
@@ -42,6 +43,10 @@ export function articleApplications(code: string | undefined): CatalogApplicatio
   }
   if (Object.prototype.hasOwnProperty.call(reviewed.articles, code)) {
     return reviewed.articles[code].map((index) => publicApplication(reviewed.profiles[index], reviewed.checkedDate));
+  }
+  const platformArticles = platformData.articles as Record<string, { application: CatalogApplication }[]>;
+  if (Object.prototype.hasOwnProperty.call(platformArticles, code)) {
+    return platformArticles[code].map(({ application }) => publicApplication(application, platformData.checkedDate));
   }
   return undefined;
 }
