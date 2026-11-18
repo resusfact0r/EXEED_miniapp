@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import type { BagItem } from './basket';
+import { bagLineKey, type BagItem } from './basket';
+import { warehouseLabel } from './ProductOffers';
 import { money } from './catalog';
 import {
   allocate,
@@ -54,7 +55,7 @@ export function Checkout({
               !number &&
               found.items.length === bag.length &&
               bag.every((l) =>
-                found.items.some((i) => i.code === l.product.code && i.quantity === l.quantity),
+                found.items.some((i) => i.code === l.product.code && i.quantity === l.quantity && i.warehouse === l.warehouse),
               )
             )
               onPlaced();
@@ -141,7 +142,7 @@ export function Checkout({
         consent: fields.has('consent'),
         ...(exact ? {} : { vin: String(fields.get('vin')).toUpperCase() }),
         ...(method === 'cdek' ? { city, point: fields.get('point') } : {}),
-        lines: bag.map(({ product, quantity }) => ({ code: product.code, quantity })),
+        lines: bag.map(({ product, warehouse, quantity }) => ({ code: product.code, quantity, ...(warehouse ? { warehouse } : {}) })),
       };
       const o = await guest<Order>('orders', token, dto);
       remember(o, token);
@@ -186,8 +187,8 @@ export function Checkout({
         <strong role="status">{states[order.state]}</strong>
         <ul>
           {order.items.map((i) => (
-            <li key={i.code}>
-              {i.name} · {i.quantity} шт. · {money((i.quantity * i.cents) / 100)}
+            <li key={bagLineKey(i.code, i.warehouse)}>
+              {i.name} · {warehouseLabel(i)} · {i.quantity} шт. · {money((i.quantity * i.cents) / 100)}
             </li>
           ))}
         </ul>
@@ -202,7 +203,7 @@ export function Checkout({
           <strong>Итого {money((order.goodsCents + order.deliveryCents) / 100)}</strong>
         )}
         {order.state === 'REVIEW' && (
-          <p>Менеджер проверит подбор или упаковку. Подтверждённая сумма появится здесь.</p>
+          <p>Менеджер проверит условия выбранного склада, подбор и доставку. Подтверждённая сумма появится здесь.</p>
         )}
         {['QUOTED', 'PAYMENT'].includes(order.state) &&
           (order.canPay ? (

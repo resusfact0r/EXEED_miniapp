@@ -1,3 +1,4 @@
+import { articleKey, inStock, type CatalogOffer } from './offers';
 import { articleApplications, type CatalogApplication } from './article-applications';
 
 /** Catalog navigation; final vehicle compatibility still requires VIN verification. */
@@ -77,6 +78,9 @@ export interface NavigationProduct {
   stockQty: number;
   packQty: number;
   imageUrl?: string | null;
+  images?: string[];
+  offers?: CatalogOffer[];
+  originalArticles?: string[];
   brands: string[];
   models: string[];
   categories: string[];
@@ -95,6 +99,10 @@ export interface WebFilters {
   pageSize?: number;
 }
 
+export function matchesOriginal(product: NavigationProduct, query: string) {
+  return product.originalArticles?.includes(articleKey(query)) ?? false;
+}
+
 export function filterWebProducts(products: NavigationProduct[], filters: WebFilters) {
   const words = (filters.query ?? '').trim().toLocaleLowerCase('ru').split(/\s+/).filter(Boolean).slice(0, 8);
   const compact = (value: string) => value.replace(/[-.\s/]/g, '').toLowerCase();
@@ -108,17 +116,22 @@ export function filterWebProducts(products: NavigationProduct[], filters: WebFil
       return words.every((word) => baseMatch(word) || label.includes(word));
     }) ?? false;
   };
+  const query = filters.query ?? '';
   const result = products.filter((product) =>
-    (!filters.brand || product.brands.includes(filters.brand)) &&
-    (!filters.model || product.models.includes(`${filters.brand}:${filters.model}`)) &&
-    (!filters.category || product.categories.includes(filters.category)) &&
-    (!filters.inStock || product.stockQty >= product.packQty) &&
-    matchesWords(product),
+    (!filters.inStock || (product.offers ? product.offers.some(inStock) : product.stockQty >= product.packQty)) &&
+    (matchesOriginal(product, query) || (
+      (!filters.brand || product.brands.includes(filters.brand)) &&
+      (!filters.model || product.models.includes(`${filters.brand}:${filters.model}`)) &&
+      (!filters.category || product.categories.includes(filters.category)) &&
+      matchesWords(product)
+    )),
   );
-  const exact = compact(filters.query ?? '');
+  const exact = compact(query);
   result.sort((a, b) => {
     const exactOrder = Number(compact(b.code) === exact) - Number(compact(a.code) === exact);
     if (exactOrder) return exactOrder;
+    const originalOrder = Number(matchesOriginal(b, query)) - Number(matchesOriginal(a, query));
+    if (originalOrder) return originalOrder;
     if (filters.sort === 'price-asc') return Number(a.price) - Number(b.price);
     if (filters.sort === 'price-desc') return Number(b.price) - Number(a.price);
     return a.name.localeCompare(b.name, 'ru');

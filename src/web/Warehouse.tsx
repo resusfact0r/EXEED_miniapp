@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { bagLineKey } from './basket';
+import { warehouseLabel } from './ProductOffers';
 import { api, request, states, type Order } from './orders';
 type Entry = Order & { phone: string; name: string; vin?: string };
 export function Warehouse() {
@@ -60,6 +62,7 @@ export function Warehouse() {
   return (
     <main className="container warehouse">
       <h1>Заказы с сайта</h1>
+      <a className="text-link" href="?catalog-admin=1">Управление каталогом</a>
       <form
         className="checkout-form"
         onSubmit={(e) => {
@@ -99,8 +102,8 @@ export function Warehouse() {
           </p>
           <ul>
             {o.items.map((i) => (
-              <li key={i.code}>
-                {i.code} · {i.name} × {i.quantity}
+              <li key={bagLineKey(i.code, i.warehouse)}>
+                {i.code} · {i.name} × {i.quantity} · {warehouseLabel(i)}
               </li>
             ))}
           </ul>
@@ -120,7 +123,7 @@ export function Warehouse() {
                     </label>
                   ))}
                   {o.items.map((i, n) => (
-                    <label key={i.code}>
+                    <label key={bagLineKey(i.code, i.warehouse)}>
                       Вес единицы {i.code}, г<input required min={1} type="number" name={'grams' + n} />
                     </label>
                   ))}
@@ -128,7 +131,7 @@ export function Warehouse() {
               )}
               <label className="checkout-check">
                 <input type="checkbox" required />
-                Применяемость проверена
+                Применяемость, наличие и цена на выбранных складах подтверждены
               </label>
               <button className="button" disabled={busy}>
                 Подтвердить расчёт

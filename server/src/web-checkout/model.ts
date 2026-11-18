@@ -16,10 +16,12 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { WAREHOUSE_CODE } from '../catalog/offers';
 
 export class Line {
   @IsString() @MinLength(1) @MaxLength(100) code!: string;
   @IsInt() @Min(1) @Max(100000) quantity!: number;
+  @IsOptional() @Matches(WAREHOUSE_CODE) warehouse?: string;
 }
 export class Checkout {
   @IsString() @Matches(/^\S.{0,98}\S$/u) name!: string;
@@ -57,4 +59,7 @@ export class Approval {
 export class PaymentConsent {
   @IsInt() @Min(1) @Max(2147483647) totalCents!: number;
 }
-export type Item = { code: string; name: string; quantity: number; cents: number };
+export type Item = {
+  code: string; name: string; quantity: number; cents: number;
+  warehouse?: string; warehouseName?: string;
+};

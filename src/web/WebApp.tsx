@@ -1,23 +1,21 @@
 import { Checkout } from './Checkout';
 import { Warehouse } from './Warehouse';
+import { CatalogAdmin } from './CatalogAdmin';
+import { OfferList, ProductGallery, warehouseLabel } from './ProductOffers';
+import { inStock, type CatalogOffer } from '../../server/src/catalog/offers';
+import { matchesOriginal } from '../../server/src/catalog/web-taxonomy';
 import { historyList } from './orders';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { CarMap } from './CarMap';
 import { AssemblyMap } from './AssemblyMap';
 import { Icon } from './Icons';
 import { findProduct, findProducts, loadCatalog, money, supportUrl, type CatalogSession, type NavigationProduct, type WebFilters } from './catalog';
-import { addToBag, changeBagQuantity, maxQuantity, parseSavedBag, storageKey, type BagItem } from './basket';
+import { addToBag, bagLineKey, changeBagQuantity, maxQuantity, parseSavedBag, storageKey, type BagItem } from './basket';
 import './web.css';
 
 type Modal = 'checkout' | 'orders' | 'cart' | 'help' | 'delivery' | null;
 const number = (value: number) => new Intl.NumberFormat('ru-RU').format(value);
 const emptyFilters: WebFilters = { brand: '', model: '', category: '', query: '', page: 1, pageSize: 12, sort: 'name', inStock: false };
-
-function safeImageUrl(value: string | null | undefined) {
-  if (!value) return '';
-  try { const url = new URL(value, location.origin); return url.protocol === 'https:' || (url.protocol === 'http:' && url.origin === location.origin) ? url.href : ''; }
-  catch { return ''; }
-}
 
 function initialFilters(): WebFilters {
   const params = new URLSearchParams(location.search);
@@ -48,7 +46,9 @@ function Dialog({ title, children, onClose, feedback }: { title: string; childre
 }
 
 export function WebApp() {
-  return new URLSearchParams(location.search).has('warehouse') ? <Warehouse/> : <Store/>;
+  const params = new URLSearchParams(location.search);
+  if (params.has('catalog-admin')) return <CatalogAdmin/>;
+  return params.has('warehouse') ? <Warehouse/> : <Store/>;
 }
 function Store() {
   const [catalog, setCatalog] = useState<CatalogSession>();
@@ -129,7 +129,11 @@ function Store() {
   function selectCategory(category: string) { setSearch(''); update({ category, query: '' }); }
   function submitSearch(event: FormEvent) { event.preventDefault(); update({ query: search.trim() }, true); }
   function mutateBag(transform: (current: BagItem[]) => BagItem[]) { const next = transform(bagRef.current); bagRef.current = next; setBag(next); }
-  function add(product: NavigationProduct) { const result = addToBag(bagRef.current, product); mutateBag(() => result.bag); setToast(result.message); }
+  function add(product: NavigationProduct, offer?: CatalogOffer) {
+    const result = addToBag(bagRef.current, product, offer);
+    mutateBag(() => result.bag);
+    setToast(result.message);
+  }
   function openDetail(product: NavigationProduct) { detailRequest.current++; setToast(''); setDetail(product); }
   function closeDetail() {
     detailRequest.current++; setDetail(null); setToast('');
@@ -141,12 +145,41 @@ function Store() {
     try { await navigator.clipboard.writeText(text); setToast(message); }
     catch { setToast('Не удалось скопировать. Выделите текст и скопируйте вручную.'); }
   }
-  const requestText = `Здравствуйте! Помогите проверить применяемость, цену и наличие:\n${bag.map((line) => `${line.product.code} — ${line.product.name}, ${line.quantity} шт.`).join('\n')}\nАвтомобиль / VIN: `;
+  const requestText = `Здравствуйте! Помогите проверить применяемость, цену и наличие:\n${bag.map((line) => `${line.product.code} — ${line.product.name}, ${line.quantity} шт. · ${warehouseLabel(line)}`).join('\n')}\nАвтомобиль / VIN: `;
   const draftText = encodeURIComponent(requestText).length <= 1500 ? requestText : `Здравствуйте! Нужна проверка подбора: ${bag.length} позиций. Пришлю список деталей. Автомобиль / VIN: `;
   function downloadSelection() {
     const url = URL.createObjectURL(new Blob([requestText], { type: 'text/plain;charset=utf-8' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'exeed-parts.txt'; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  const isAnalogue = (product: NavigationProduct) => matchesOriginal(product, filters.query ?? '');
+  const originals = items.filter((product) => !isAnalogue(product));
+  const analogues = items.filter(isAnalogue);
+
+  function renderProduct(product: NavigationProduct) {
+    const offers = product.offers ?? [];
+    const choice = offers.length > 1;
+    const available = offers.length ? offers.some(inStock) : inStock(product);
+    const inBag = bag.some((line) => line.product.code === product.code);
+    return <article className="product-card" key={product.id}>
+      <div className="product-title-group">
+        <button className="product-name" onClick={() => openDetail(product)}>{product.name}</button>
+        <button className="article-code" onClick={() => void copy(product.code, 'Артикул скопирован')}
+          aria-label={`Скопировать артикул ${product.code}`}>{product.code}<Icon name="copy" size={13}/></button>
+        {!choice && product.packQty > 1 && <span className="pack-label">Партия {product.packQty} шт.</span>}
+      </div>
+      <span className={`stock-label ${available ? '' : 'out-of-stock'}`}
+        aria-label={available && !choice ? `В наличии ${product.stockQty} шт.` : undefined}>
+        {available ? choice ? 'Выбор склада' : `${number(product.stockQty)} шт.` : 'Под заказ'}
+      </span>
+      <div className="product-price-row"><strong>{choice && available && 'от '}{money(product.price)}</strong></div>
+      <button className={`add-button ${inBag ? 'in-bag' : ''}`} disabled={!available}
+        onClick={() => choice ? openDetail(product) : add(product, offers[0])}
+        aria-label={`${choice ? 'Выбрать склад' : inBag ? 'Добавить ещё' : 'Добавить в корзину'}: ${product.name}`}>
+        <Icon name={choice ? 'chevron' : inBag ? 'check' : 'plus'} size={19}/>
+      </button>
+    </article>;
   }
 
   return <div className="web-store">
@@ -178,11 +211,11 @@ function Store() {
         {source === 'snapshot' && <p className="snapshot-notice">Каталог из выгрузки. Цену, наличие и совместимость уточним перед заказом.</p>}
         {error ? <div className="empty-state" role="alert"><Icon name="electric" size={28}/><h3>Каталог временно недоступен</h3><p>{error}</p><button className="button" onClick={() => setRetry((value) => value + 1)}>Попробовать снова</button></div> : loading ? <div className="product-loading" role="status" aria-label="Загрузка деталей"><span className="loading-dot"/>Ищем детали…</div> : !items.length ? <div className="empty-state"><Icon name="search" size={28}/><h3>Детали не найдены</h3><p>Попробуйте другой артикул или измените условия подбора.</p><button className="button button-secondary" onClick={reset}>Сбросить фильтры</button><a href={supportUrl} target="_blank" rel="noreferrer" className="text-link">Помощь менеджера<Icon name="arrow" size={15}/></a></div> : <>
           <div className="list-heading" aria-hidden="true"><span>Деталь / артикул</span><span>Наличие</span><span>Цена за шт.</span><span/></div>
-          <div className="product-grid" aria-live="polite">{items.map((product) => {
-            const available = product.stockQty >= product.packQty;
-            const inBag = bag.some((line) => line.product.code === product.code);
-            return <article className="product-card" key={product.id}><div className="product-title-group"><button className="product-name" onClick={() => openDetail(product)}>{product.name}</button><button className="article-code" onClick={() => void copy(product.code, 'Артикул скопирован')} aria-label={`Скопировать артикул ${product.code}`}>{product.code}<Icon name="copy" size={13}/></button>{product.packQty > 1 && <span className="pack-label">Партия {product.packQty} шт.</span>}</div><span className={`stock-label ${available ? '' : 'out-of-stock'}`} aria-label={available ? `В наличии ${product.stockQty} шт.` : 'Нет в наличии'}>{available ? `${number(product.stockQty)} шт.` : 'Нет в наличии'}</span><div className="product-price-row"><strong>{money(product.price)}</strong></div><button className={`add-button ${inBag ? 'in-bag' : ''}`} disabled={!available} onClick={() => add(product)} aria-label={`${inBag ? 'Добавить ещё' : 'Добавить в корзину'}: ${product.name}`}><Icon name={inBag ? 'check' : 'plus'} size={19}/></button></article>;
-          })}</div>
+          {originals.length > 0 && <div className="product-grid" aria-live="polite">{originals.map(renderProduct)}</div>}
+          {analogues.length > 0 && <section className="catalog-analogues" aria-labelledby="analogues-heading">
+            <h3 id="analogues-heading">Аналоговые з/ч</h3>
+            <div className="product-grid" aria-live="polite">{analogues.map(renderProduct)}</div>
+          </section>}
           {total > 12 && <nav className="pagination" aria-label="Страницы каталога"><button disabled={filters.page === 1} onClick={() => update({ page: (filters.page ?? 1) - 1 }, true)} aria-label="Предыдущая страница"><Icon name="chevron" size={18} style={{ transform: 'rotate(180deg)' }}/></button><span>{filters.page} <span>из {Math.ceil(total / 12)}</span></span><button disabled={(filters.page ?? 1) * 12 >= total} onClick={() => update({ page: (filters.page ?? 1) + 1 }, true)} aria-label="Следующая страница"><Icon name="chevron" size={18}/></button></nav>}
         </>}
       </section>
@@ -192,18 +225,44 @@ function Store() {
     {toast && !modal && !detail && <div className="toast" role="status"><Icon name="check" size={17}/>{toast}</div>}
 
     {detail && <Dialog title="Деталь" feedback={toast} onClose={closeDetail}>
-      {safeImageUrl(detail.imageUrl) && <img className="detail-image" src={safeImageUrl(detail.imageUrl)} alt={detail.name}/>}
+      <ProductGallery key={detail.code} product={detail}/>
       <button className="article-code detail-code" onClick={() => void copy(detail.code)} aria-label={`Скопировать артикул ${detail.code}`}>{detail.code}<Icon name="copy" size={15}/></button><h3 className="detail-name">{detail.name}</h3>
       {detail.vehicleApplications?.length ? <details className="catalog-applications"><summary>Марки и модели · {detail.vehicleApplications.length}</summary><p className="dialog-note">Перед заказом проверим исполнение по VIN.</p><ul>{detail.vehicleApplications.map((application) => <li key={`${application.brand}:${application.model}:${application.configuration}`}><div><strong>{application.brand} {application.model}</strong><span>{application.configuration}{application.modelYearFrom ? ` · модельный год ${application.modelYearFrom}+` : ''}</span></div></li>)}</ul></details> : detail.brands.length > 0 && <div className="detail-tags">{detail.brands.map((brand) => <span key={brand}>{brand}</span>)}{detail.models.map((model) => <span key={model}>{model.split(':')[1]}</span>)}</div>}
       {detail.description && <p className="dialog-note">{detail.description}</p>}
-      <div className="detail-price"><strong>{money(detail.price)}</strong><span>за штуку{detail.packQty > 1 ? ` · партия ${detail.packQty} шт.` : ''}</span></div><p className="dialog-note">{detail.stockQty >= detail.packQty ? `Остаток по каталогу: ${detail.stockQty} шт.` : 'Нет в наличии'} Применяемость проверим по VIN. {source === 'snapshot' ? 'Цена из выгрузки, актуальность уточнит менеджер.' : 'Цена и наличие проверяются перед оформлением.'}</p>
-      <button className="button full-width" disabled={detail.stockQty < detail.packQty} onClick={() => add(detail)}><Icon name="cart" size={19}/>Добавить в корзину</button><button className="button button-secondary full-width" onClick={() => { const params = new URLSearchParams(location.search); params.set('part', detail.code); void copy(`${location.origin}${location.pathname}?${params}`, 'Ссылка на деталь скопирована'); }}>Поделиться<Icon name="copy" size={16}/></button>
+      {Boolean(detail.originalArticles?.length) && <p className="dialog-note">Артикулы оригиналов · {detail.originalArticles?.join(', ')}</p>}
+      {detail.offers ? <OfferList offers={detail.offers} onAdd={(offer) => add(detail, offer)}/> : <>
+        <div className="detail-price"><strong>{money(detail.price)}</strong><span>за штуку{detail.packQty > 1 ? ` · партия ${detail.packQty} шт.` : ''}</span></div>
+        <p className="dialog-note">{inStock(detail) ? `Остаток по каталогу: ${detail.stockQty} шт.` : 'Под заказ'}</p>
+        <button className="button full-width" disabled={!inStock(detail)} onClick={() => add(detail)}><Icon name="cart" size={19}/>Добавить в корзину</button>
+      </>}
+      <p className="dialog-note">{source === 'snapshot' ? 'Цену и наличие по выгрузке уточнит менеджер.' : 'Цена и наличие проверяются перед оформлением.'}</p>
+      <button className="button button-secondary full-width" onClick={() => { const params = new URLSearchParams(location.search); params.set('part', detail.code); void copy(`${location.origin}${location.pathname}?${params}`, 'Ссылка на деталь скопирована'); }}>Поделиться<Icon name="copy" size={16}/></button>
     </Dialog>}
 
     {modal === 'orders' && <Dialog title="Мои заказы" feedback="" onClose={()=>setModal(null)}><div className="checkout-form">{historyList().map(o=><button className="button button-secondary" key={o.number} onClick={()=>{setSelectedOrder(o.number);openModal('checkout');}}>Заказ W{o.number}</button>)}</div></Dialog>}
     {modal === 'checkout' && <Dialog title="Оформление заказа" feedback="" onClose={()=>{setModal(null);const u=new URL(location.href);u.searchParams.delete('webOrder');history.replaceState(null,'',u);}}><Checkout bag={bag} number={selectedOrder} onPlaced={()=>mutateBag(()=>[])}/></Dialog>}
     {modal === 'cart' && <Dialog title={`Корзина${itemCount ? ` · ${itemCount}` : ''}`} feedback={toast} onClose={() => setModal(null)}>{bag.length ? <>
-      <div className="bag-lines">{bag.map(({ product, quantity }) => <div className="bag-line" key={product.code}><div className="bag-line-info"><small>{product.code}</small><strong>{product.name}</strong><div className="bag-line-controls"><div className="quantity-stepper"><button onClick={() => mutateBag((current) => changeBagQuantity(current, product.code, -1))} aria-label={`Уменьшить количество ${product.code}`}><Icon name="minus" size={15}/></button><span>{quantity}</span><button disabled={quantity + product.packQty > maxQuantity(product)} onClick={() => mutateBag((current) => changeBagQuantity(current, product.code, 1))} aria-label={`Увеличить количество ${product.code}`}><Icon name="plus" size={15}/></button></div><span>{money(Number(product.price) * quantity)}</span></div></div><button className="icon-button" aria-label={`Удалить ${product.code}`} onClick={() => mutateBag((current) => current.filter((line) => line.product.code !== product.code))}><Icon name="close" size={17}/></button></div>)}</div>
+      <div className="bag-lines">{bag.map((line) => {
+        const { product, quantity, warehouse } = line;
+        const key = bagLineKey(product.code, warehouse);
+        return <div className="bag-line" key={key}>
+          <div className="bag-line-info">
+            <small>{product.code} · {warehouseLabel(line)}</small><strong>{product.name}</strong>
+            <div className="bag-line-controls">
+              <div className="quantity-stepper">
+                <button onClick={() => mutateBag((current) => changeBagQuantity(current, product.code, -1, warehouse))} aria-label={`Уменьшить количество ${product.code} · ${warehouseLabel(line)}`}><Icon name="minus" size={15}/></button>
+                <span>{quantity}</span>
+                <button disabled={quantity + product.packQty > maxQuantity(product)}
+                  onClick={() => mutateBag((current) => changeBagQuantity(current, product.code, 1, warehouse))}
+                  aria-label={`Увеличить количество ${product.code} · ${warehouseLabel(line)}`}><Icon name="plus" size={15}/></button>
+              </div><span>{money(Number(product.price) * quantity)}</span>
+            </div>
+          </div>
+          <button className="icon-button"
+            aria-label={`Удалить ${product.code} · ${warehouseLabel(line)}`}
+            onClick={() => mutateBag((current) => current.filter((item) => bagLineKey(item.product.code, item.warehouse) !== key))}><Icon name="close" size={17}/></button>
+        </div>;
+      })}</div>
       <div className="bag-total"><span>Ориентировочно</span><strong>{money(subtotal)}</strong></div><p className="dialog-note">Стоимость и наличие проверим при оформлении.</p>
       {source==='live' && <button className="button full-width" onClick={()=>{setSelectedOrder(undefined);openModal('checkout');}}>Оформить на сайте</button>}
       {draftText !== requestText && <p className="dialog-note">Сохраните список кнопкой ниже и пришлите его менеджеру после перехода в Telegram.</p>}

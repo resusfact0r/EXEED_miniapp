@@ -74,13 +74,53 @@ model Product {
   packQty     Int         @default(1)
   description String?
   imageUrl    String?
+  images      String[]    @default([])
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  offers      WarehouseOffer[]
+  originals   OriginalArticle[]
 
   @@index([name])
+}
+
+/// Sales sources and their pricing rules. Product retains a legacy central-feed projection.
+model Warehouse {
+  code           String           @id
+  name           String
+  extraMarkup    Decimal          @db.Decimal(5, 2)
+  defaultPackQty Int              @default(1)
+  retail         Boolean          @default(false)
+  brandFilter    String?
+  offers         WarehouseOffer[]
+}
+
+model WarehouseOffer {
+  productId     String
+  warehouseCode String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse     Warehouse @relation(fields: [warehouseCode], references: [code])
+  /// Raw supplier unit price, or final customer price for a retail warehouse.
+  price         Decimal   @db.Decimal(10, 2)
+  stockQty      Int
+  packQty       Int
+  isActive      Boolean   @default(true)
+  updatedAt     DateTime  @updatedAt
+
+  @@id([productId, warehouseCode])
+  @@index([warehouseCode, isActive])
+}
+
+/// An analogue can serve multiple original articles, including originals we don't stock.
+model OriginalArticle {
+  originalCode String
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([originalCode, productId])
+  @@index([productId])
 }
 
 model CartItem {
@@ -176,6 +216,7 @@ enum PriceImportStatus {
 model PriceImport {
   id         String            @id @default(cuid())
   source     String
+  warehouseCode String          @default("cs")
   messageUid Int?
   messageId  String?           @unique
   receivedAt DateTime?
@@ -190,6 +231,7 @@ model PriceImport {
   createdAt  DateTime          @default(now())
 
   @@index([messageUid])
+  @@index([warehouseCode, status, receivedAt])
 }
 
 // Guest orders use a random per-order access key, separate from Telegram identities.

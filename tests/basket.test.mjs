@@ -26,3 +26,13 @@ test('a sequence of rapid add actions stays within the inventory limit', () => {
   assert.equal(bag[0].quantity, 3);
   assert.deepEqual(changeBagQuantity([{ product, quantity: 1 }], product.code, -1), []);
 });
+
+test('one article can be selected as a central lot and singly from another warehouse', () => {
+  const cs = { warehouse: 'cs', warehouseName: 'Склад ЦС', price: '100.00', stockQty: 40, packQty: 20 };
+  const opt2 = { warehouse: 'msk-opt-2', warehouseName: 'Склад 2 (Chery)', price: '120.00', stockQty: 4, packQty: 1 };
+  const bag = addToBag(addToBag([], product, cs).bag, product, opt2).bag;
+  assert.deepEqual(bag.map(({ warehouse, quantity }) => [warehouse, quantity]), [['cs', 20], ['msk-opt-2', 1]]);
+  const restored = parseSavedBag(JSON.stringify(bag));
+  assert.equal(changeBagQuantity(restored, product.code, 1, opt2.warehouse)[1].quantity, 2);
+  assert.equal(changeBagQuantity(restored, product.code, -1, cs.warehouse)[0].warehouse, opt2.warehouse);
+});

@@ -9,7 +9,7 @@ function fixture() {
   const matches = (o, w) => Object.entries(w).every(([k, v]) => o[k] === v);
   const find = async ({ where }) => [...records.values()].find((row) => matches(row, where)) ?? null;
   const db = {
-    product: { findMany: async () => [{ code: 'SKU', name: 'Деталь' }] },
+    product: { findMany: async () => [{ code: 'SKU', name: 'Деталь', isActive: true, offers: [] }] },
     webOrder: {
       findUnique: find,
       findUniqueOrThrow: find,
@@ -175,4 +175,33 @@ test('carrier receives actual parcel dimensions and prepaid items; payment retri
   } finally {
     global.fetch = original;
   }
+});
+
+test('mail routing reserves МСК ОПТ-2 even while its reader is disabled', () => {
+  const { mailRoutes, routeMail } = require('../dist/price-sync/mail-routing');
+  const rules = mailRoutes({ PRICE_MAIL_FROM: 'parts@example.invalid', PRICE_MAIL_SUBJECT: 'прайс' });
+  const second = routeMail(['parts@EXAMPLE.INVALID'], 'Прайс · МСК  ОПТ — 2', rules);
+  assert.equal(second.warehouseCode, 'msk-opt-2');
+  assert.equal(second.enabled, false);
+  assert.equal(routeMail(['parts@example.invalid'], 'Прайс ЦС', rules).warehouseCode, 'cs');
+  assert.equal(routeMail(['parts@example.invalid.evil.invalid'], 'Прайс ЦС', rules), undefined);
+});
+
+test('the chosen central store is verified by StoreId before considering price or stock', async (t) => {
+  const { AvtoligaService } = require('../dist/avtoliga/avtoliga.service');
+  const fetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = fetch; });
+  globalThis.fetch = async () => ({
+    json: async () => ({ Status: 1, SpareParts: [{
+      Articul: 'PART', Vendor: 'CHERY', Prices: [
+        { StoreId: 'central-warehouse', Count: 40, InPackage: 20, Price: 50 },
+        { StoreId: 'supplier-warehouse', Count: 80, InPackage: 1, Price: 25 },
+      ],
+    }] }),
+  });
+  const service = new AvtoligaService();
+  const result = await service.getLivePrices(['PART'], { PART: 20 }, 'central-warehouse');
+  assert.equal(result.get('PART').stockQty, 40);
+  assert.equal(result.get('PART').packQty, 20);
+  assert.equal((await service.getLivePrices(['PART'], { PART: 1 }, 'unknown')).size, 0);
 });

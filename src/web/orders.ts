@@ -2,7 +2,7 @@ export const api = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, 
 export type Order = {
   number: number;
   state: string;
-  items: { code: string; name: string; quantity: number; cents: number }[];
+  items: { code: string; name: string; quantity: number; cents: number; warehouse?: string; warehouseName?: string }[];
   goodsCents: number;
   deliveryCents: number | null;
   address: string;
@@ -31,11 +31,13 @@ export class ApiError extends Error {
   }
 }
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (typeof init.body === 'string' && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const res = await fetch(api + path, {
     ...init,
     cache: 'no-store',
-    signal: AbortSignal.timeout(35000),
-    headers: { 'Content-Type': 'application/json', ...init.headers },
+    signal: init.signal ?? AbortSignal.timeout(35000),
+    headers,
   });
   if (!res.ok) {
     const d = await res.json().catch(() => ({}));

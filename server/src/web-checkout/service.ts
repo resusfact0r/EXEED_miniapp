@@ -14,10 +14,17 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvtoligaService } from '../avtoliga/avtoliga.service';
+import type { LivePrice } from '../avtoliga/types';
+import { CENTRAL_LABEL, CENTRAL_WAREHOUSE } from '../catalog/offers';
+import { activeWebProduct, catalogOffer, centralOffer } from '../catalog/warehouse-offer';
 import { PICKUP_ADDRESSES } from '../delivery/pickup-addresses';
 import { callTelegram, getBotUsername } from '../bot/telegram-api';
 import { Checkout, Line, Parcel, Approval, Item } from './model';
 import { Bank, Shipping } from './providers';
+
+const centralStoreId = () => process.env.AVTOLIGA_CS_STORE_ID?.trim() || undefined;
+const needsReview = (item: Item) =>
+  item.warehouse !== undefined && (item.warehouse !== CENTRAL_WAREHOUSE || !centralStoreId());
 
 export const digest = (s: string) => createHash('sha256').update(s).digest('hex');
 const hashKey = (key: string) => {
@@ -64,36 +71,53 @@ export class WebOrders implements OnModuleInit, OnModuleDestroy {
     readonly shipping: Shipping,
   ) {}
   async price(lines: Line[]): Promise<Item[]> {
-    const codes = lines.map((i) => i.code);
-    if (new Set(codes).size !== codes.length) throw new BadRequestException('Повторяющийся артикул.');
+    const sourceKey = ({ code, warehouse }: Line) => JSON.stringify([code, warehouse ?? CENTRAL_WAREHOUSE]);
+    if (new Set(lines.map(sourceKey)).size !== lines.length) {
+      throw new BadRequestException('Повторяющийся артикул на одном складе.');
+    }
+    const codes = [...new Set(lines.map((i) => i.code))];
     const products = await this.db.product.findMany({
-      where: { isActive: true, code: { in: codes } },
-      select: { name: true, code: true },
+      where: { ...activeWebProduct, code: { in: codes } },
+      include: { offers: { where: { isActive: true }, include: { warehouse: true } } },
     });
-    if (products.length !== lines.length)
+    const byCode = new Map(products.map((product) => [product.code, product]));
+    if (byCode.size !== codes.length) {
       throw new ConflictException('Состав каталога изменился. Проверьте корзину.');
-    const current = await this.supplier
-      .getLivePrices(codes, Object.fromEntries(lines.map((i) => [i.code, i.quantity])))
-      .catch(() => {
-        throw new ServiceUnavailableException('Поставщик пока не подтвердил цену и остаток.');
-      });
-    return lines.map(({ code, quantity }) => {
-      const p = current.get(code);
-      if (
-        !p ||
-        !Number.isFinite(p.price) ||
-        p.price <= 0 ||
-        !(p.stockQty >= quantity) ||
-        quantity % p.packQty ||
-        quantity > (p.packQty > 1 ? p.packQty : 10)
-      )
-        throw new ConflictException('Изменились условия для ' + code + '. Проверьте корзину.');
+    }
+
+    const storeId = centralStoreId();
+    const [legacy, central] = await Promise.all([
+      this.livePrices(lines.filter((line) => !line.warehouse)),
+      storeId ? this.livePrices(lines.filter((line) => line.warehouse === CENTRAL_WAREHOUSE), storeId) : undefined,
+    ]);
+
+    return lines.map(({ code, quantity, warehouse }) => {
+      const product = byCode.get(code)!;
+      const extra = product.offers.find((offer) => offer.warehouseCode === warehouse);
+      const selected = warehouse && warehouse !== CENTRAL_WAREHOUSE
+        ? (extra && catalogOffer(extra))
+        : (product.isActive
+          ? (!warehouse ? legacy.get(code) : central ? central.get(code) : extra ? catalogOffer(extra) : centralOffer(product))
+          : undefined);
+      const price = Number(selected?.price);
+      if (!selected || !Number.isFinite(price) || price <= 0 || selected.stockQty < quantity
+          || quantity % selected.packQty !== 0 || quantity > (selected.packQty > 1 ? selected.packQty : 10)) {
+        throw new ConflictException('Изменились условия для ' + code + '. Проверьте выбранный склад и количество.');
+      }
       return {
-        code,
-        quantity,
-        cents: Math.round(p.price * 100),
-        name: products.find((x) => x.code === code)!.name,
+        code, quantity, cents: Math.round(price * 100), name: product.name,
+        ...(warehouse ? { warehouse, warehouseName: extra?.warehouse.name ?? CENTRAL_LABEL } : {}),
       };
+    });
+  }
+  private async livePrices(lines: Line[], storeId?: string): Promise<Map<string, LivePrice>> {
+    if (!lines.length) return new Map();
+    return this.supplier.getLivePrices(
+      lines.map(({ code }) => code),
+      Object.fromEntries(lines.map(({ code, quantity }) => [code, quantity])),
+      storeId,
+    ).catch(() => {
+      throw new ServiceUnavailableException('Поставщик пока не подтвердил цену и остаток ЦС.');
     });
   }
   async create(key: string, dto: Checkout) {
@@ -107,7 +131,7 @@ export class WebOrders implements OnModuleInit, OnModuleDestroy {
         dto.vin,
         dto.city,
         dto.point,
-        dto.lines.map((i) => [i.code, i.quantity]),
+        dto.lines.map((i) => i.warehouse ? [i.code, i.quantity, i.warehouse] : [i.code, i.quantity]),
       ]),
     );
     const replay = (o: WebOrder) => {
@@ -152,7 +176,7 @@ export class WebOrders implements OnModuleInit, OnModuleDestroy {
           goodsCents: total(items),
           deliveryCents,
           ...(parcel ? { parcel: { ...parcel } } : {}),
-          state: dto.exactArticle && deliveryCents !== null ? 'QUOTED' : 'REVIEW',
+          state: dto.exactArticle && deliveryCents !== null && !items.some(needsReview) ? 'QUOTED' : 'REVIEW',
         },
       });
       const chats = (process.env.ORDER_NOTIFY_CHAT_IDS || '')

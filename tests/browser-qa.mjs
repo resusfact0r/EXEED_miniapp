@@ -63,13 +63,22 @@ async function fixture(options, run) {
       const url = new URL(request.url());
       const json = (value, status = 200) => request.respond({ status, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(value) });
       if (state.blockChunk && /\/WebApp-.*\.js$/.test(url.pathname)) return request.respond({ status: 503, body: 'QA unavailable chunk' });
+      if (state.staff && url.pathname === '/api/admin/catalog/cards') {
+        if (request.headers()['x-admin-token'] !== 'staff-test') return json({ message: 'Invalid admin token' }, 401);
+        if (request.method() === 'POST') {
+          state.savedCard = JSON.parse(await request.fetchPostData());
+          state.card = { ...state.savedCard, id: 'card-test', updatedAt: '2026-11-18T12:00:00Z', offers: [] };
+          return json(state.card, 201);
+        }
+        return json({ items: state.card ? [state.card] : [], total: state.card ? 1 : 0, pageSize: 30 });
+      }
       if (url.pathname.startsWith('/api/web/')) {
         state.requests.push(url.pathname + url.search);
         if (state.guestCheckout && url.pathname.startsWith('/api/web/checkout/')) {
           if (url.pathname.endsWith('/options')) return json({pickup:'Точка выдачи',cdek:true,legal:false});
           if (url.pathname.endsWith('/order')) return json(state.guestOrder||{},state.guestOrder?200:404);
           if (url.pathname.endsWith('/orders')) {
-            const dto=JSON.parse(request.postData());state.submitted=dto;
+            const dto=JSON.parse(await request.fetchPostData());state.submitted=dto;
             const items=dto.lines.map(line=>({...line,cents:12345,name:'Деталь'}));
             state.guestOrder={number:77,items,state:'QUOTED',goodsCents:12345,deliveryCents:0,method:'pickup',address:'Точка выдачи',canPay:true};
             return json(state.guestOrder,201);
@@ -84,7 +93,7 @@ async function fixture(options, run) {
           const params = url.searchParams;
           const filters = { query: params.get('query') ?? '', brand: params.get('brand') ?? '', model: params.get('model') ?? '', category: params.get('category') ?? '', page: Number(params.get('page') ?? 1), pageSize: Number(params.get('pageSize') ?? 12), sort: params.get('sort') ?? 'name', inStock: params.get('inStock') === 'true' };
           if (state.slowQuery === filters.query) await wait(500);
-          return json(filterWebProducts(snapshot.products, filters));
+          return json(filterWebProducts(state.products ?? snapshot.products, filters));
         }
         const code = decodeURIComponent(url.pathname.split('/').at(-1));
         const product = snapshot.products.find((item) => item.code === code);
@@ -93,7 +102,12 @@ async function fixture(options, run) {
       if (url.pathname.endsWith('/web-catalog.json') && !state.snapshotAvailable) return json({ message: 'Unavailable' }, 503);
       if (url.origin !== origin) return request.abort();
       await request.continue();
-    } catch (error) { if (!page.isClosed()) state.errors.push(error.message); }
+    } catch (error) {
+      if (!page.isClosed()) {
+        state.errors.push(error.message);
+        if (!request.isInterceptResolutionHandled()) await request.abort().catch(() => {});
+      }
+    }
   });
   try {
     await page.goto(origin + (options.path ?? '/'), { waitUntil: 'networkidle0' });
@@ -330,6 +344,63 @@ try {
     assert.match(await page.$eval('#catalog-title', (element) => element.textContent), /Охлаждение и климат/);
     assert.equal(await page.$eval('#parts-search', (element) => getComputedStyle(element).fontSize), '16px');
   }));
+
+  await scenario('mobile checkout keeps the selected single piece and the original article shows analogues', () => {
+    const product = {
+      ...snapshot.products[0], code: 'QA-401AA', name: 'Фильтр',
+      price: '114', stockQty: 40, packQty: 20,
+      offers: [
+        { warehouse: 'cs', warehouseName: 'Склад ЦС', price: '114', stockQty: 40, packQty: 20 },
+        { warehouse: 'msk-opt-2', warehouseName: 'Склад 2 (Chery)', price: '174', stockQty: 4, packQty: 1 },
+      ],
+    };
+    const analogue = { ...product, id: 'qa-analogue', code: 'QA-773', name: 'Аналог фильтра', originalArticles: [product.code] };
+    return fixture({ mode: 'live', width: 390, mobile: true, guestCheckout: true, products: [product, analogue], path: '/?q=QA-401AA' }, async (page, state) => {
+      await ready(page);
+      assert.equal(await page.$eval('#analogues-heading', (heading) => heading.textContent), 'Аналоговые з/ч');
+      await page.click('.product-card .add-button');
+      await page.waitForSelector('dialog .offer-row');
+      const offers = await page.$$eval('dialog .offer-row', (rows) => rows.map((row) => row.textContent));
+      assert.match(offers[0], /Склад ЦС.*Мин\. 20 шт/);
+      assert.match(offers[1], /Склад 2.*Мин\. 1 шт/);
+      await page.click('[aria-label="В корзину · Склад 2 (Chery)"]');
+      await page.keyboard.press('Escape');
+      await page.click('.basket-button');
+      assert.match(await page.$eval('.bag-line', (line) => line.textContent), /Склад 2/);
+      await page.$$eval('dialog button', (buttons) => buttons.find((b) => b.textContent === 'Оформить на сайте').click());
+      await page.waitForSelector('input[name=name]');
+      await page.type('input[name=name]', 'Тест Покупатель');
+      await page.type('input[name=phone]', '79990000000');
+      await page.click('.checkout-check input');
+      await page.click('input[name=consent]');
+      await page.click('.checkout-form button[type=submit]');
+      await page.waitForFunction(() => document.querySelector('dialog h3')?.textContent === 'Заказ W77');
+      assert.deepEqual(state.submitted.lines, [{ code: product.code, quantity: 1, warehouse: 'msk-opt-2' }]);
+    });
+  });
+
+  await scenario('catalog administrator can enter a card with images and original numbers from a mobile browser', () =>
+    fixture({ staff: true, path: '/?catalog-admin=1', width: 390, mobile: true }, async (page, state) => {
+      await page.type('input[type=password]', 'staff-test');
+      await page.click('form .button');
+      await page.waitForSelector('.admin-tabs');
+      await page.$$eval('.admin-actions button', (buttons) => buttons.find((b) => b.textContent === 'Создать карточку').click());
+      await page.type('input[name=code]', 'QA-ALT');
+      await page.type('input[name=name]', 'Тестовая деталь');
+      await page.type('textarea[name=description]', 'Описание детали');
+      await page.type('textarea[name=originals]', 'QA-100\nQA-200');
+      await page.type('input[name=price]', '75.50');
+      await page.type('input[name=stock]', '0');
+      await page.type('input[name=photo]', 'https://example.invalid/photo.webp');
+      await page.$$eval('button', (buttons) => buttons.find((b) => b.textContent === 'Сохранить карточку').click());
+      await page.waitForFunction(() => document.querySelector('[role=status]')?.textContent === 'Карточка сохранена.');
+      assert.deepEqual(state.savedCard.originalArticles, ['QA-100', 'QA-200']);
+      assert.deepEqual(state.savedCard.storeOffer, { price: 75.5, stockQty: 0 });
+      assert.deepEqual(state.savedCard.images, ['https://example.invalid/photo.webp']);
+      assert.equal(await page.$eval('input[name=code]', (input) => input.readOnly), true);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= 391), true);
+    }),
+  );
 
   await scenario('a large saved basket keeps a usable draft link and does not overflow', () => {
     const lines = snapshot.products.filter((item) => item.packQty === 1 && item.stockQty >= 1).slice(0, 100).map((product) => ({ product: { ...product, name: `${product.name} ${'Длинное описание детали '.repeat(8)}`, price: '99999999.99' }, quantity: 1 }));

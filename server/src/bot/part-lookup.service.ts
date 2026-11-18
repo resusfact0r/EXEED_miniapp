@@ -146,7 +146,7 @@ export class PartLookupService {
 
   private async lastPriceListDate(): Promise<Date | null> {
     const last = await this.prisma.priceImport.findFirst({
-      where: { status: 'APPLIED' },
+      where: { warehouseCode: 'cs', status: 'APPLIED' },
       orderBy: { createdAt: 'desc' },
       select: { receivedAt: true, createdAt: true },
     });
