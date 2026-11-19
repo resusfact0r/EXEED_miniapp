@@ -1,12 +1,15 @@
-import { Injectable, Logger, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, OnApplicationShutdown, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 
 import { callTelegram } from '../bot/telegram-api';
 import { PrismaService } from '../prisma/prisma.service';
 import { describeImport, importPriceList } from './import-price-list';
-import { CENTRAL_WAREHOUSE, CHERY_WAREHOUSE } from '../catalog/offers';
-import { mailKey, mailRoutes, routeMail } from './mail-routing';
+import { articleKey, CENTRAL_WAREHOUSE, CHERY_WAREHOUSE } from '../catalog/offers';
+import { knownMailSubjects, mailKey, mailRoutes, routeMail, type MailRoute } from './mail-routing';
+import { inspectPriceList, parsePriceList, type PriceFormat } from './excel-parser';
 
 const DEFAULT_INTERVAL_MIN = 10;
 // Only recent mail is looked at: the price list arrives several times a day and only the newest
@@ -40,6 +43,13 @@ interface Candidate {
   uid: number;
   messageId: string;
   date: Date;
+  subject: string;
+}
+
+interface MailRequest extends PriceFormat {
+  warehouseCode: string;
+  subjects: string[];
+  attachment?: string;
 }
 
 /**
@@ -144,13 +154,12 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
     return [all ?? 'INBOX', ...(junk ? [junk] : [])];
   }
 
-  private async processNewMail(client: ImapFlow, folders: string[]): Promise<void> {
+  private async scanMail(client: ImapFlow, folders: string[], routes: MailRoute[]) {
     const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
     // Everything from the sender, filtered by subject here rather than in the IMAP query: the
     // emails that don't match are what explains a stale price list.
-    const routes = mailRoutes();
     const from = [...new Set(routes.filter((r) => r.enabled && r.from).map((r) => r.from))];
-    if (!from.length) return;
+    if (!from.length) return { candidates: [], supplierMail: [] };
     const query = from.length === 1 ? { from: from[0], since } : { or: from.map((sender) => ({ from: sender })), since };
 
     const candidates: Candidate[] = [];
@@ -180,15 +189,22 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
         const key = subject.replace(/\s*от\s+\d{2}\.\d{2}\.\d{4}\s*$/, '').trim() || '(без темы)';
         const entry = bySubject.get(key) ?? { subject: key, count: 0, lastAt: date.toISOString(), matched };
         entry.count++;
+        entry.matched ||= matched;
         if (date.toISOString() > entry.lastAt) entry.lastAt = date.toISOString();
         bySubject.set(key, entry);
 
         if (route?.enabled) {
-          candidates.push({ folder, uid: msg.uid, messageId, date, warehouseCode: route.warehouseCode });
+          candidates.push({ folder, uid: msg.uid, messageId, date, subject, warehouseCode: route.warehouseCode });
         }
       }
     }
-    this.supplierMail = [...bySubject.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+    return { candidates, supplierMail: [...bySubject.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt)) };
+  }
+
+  private async processNewMail(client: ImapFlow, folders: string[]) {
+    const routes = await this.configuredRoutes();
+    const { candidates, supplierMail } = await this.scanMail(client, folders, routes);
+    this.supplierMail = supplierMail;
     if (candidates.length === 0) {
       return;
     }
@@ -227,32 +243,182 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
           messageId: candidate.messageId,
           receivedAt: candidate.date,
           fileName: attachment.filename,
-        }, { warehouseCode: candidate.warehouseCode });
+        }, { warehouseCode: candidate.warehouseCode, format: route.format });
         this.logger.log(`Price list ${candidate.warehouseCode}/${attachment.filename}: ${result.status}, ${result.rows} rows`);
         applied = result.status === 'APPLIED';
-        await this.report(describeImport(result), applied).catch(() => this.logger.warn('Price list report was not sent'));
+        if (!route.format) {
+          await this.report(describeImport(result), applied).catch(() => this.logger.warn('Price list report was not sent'));
+        }
       }
     }
   }
 
-  private async findPriceAttachment(client: ImapFlow, candidate: Candidate, routes: ReturnType<typeof mailRoutes>) {
+  private async spreadsheetAttachments(client: ImapFlow, candidate: Candidate) {
     // With the mailbox opened read-only, fetching the body can't set \Seen.
     await client.mailboxOpen(candidate.folder, { readOnly: true });
     const message = await client.fetchOne(String(candidate.uid), { source: true }, { uid: true });
-    if (!message || !message.source) {
-      return undefined;
-    }
+    if (!message || !message.source) return [];
     const parsed = await simpleParser(message.source);
-    const route = routes.find((r) => r.warehouseCode === candidate.warehouseCode)!;
-    const opt2 = routes.find((r) => r.warehouseCode === CHERY_WAREHOUSE)!;
-    const attachments = parsed.attachments.filter((a) => {
-      if (!a.filename || !EXCEL_FILE.test(a.filename)) return false;
-      const name = mailKey(a.filename);
-      if (route.warehouseCode === CENTRAL_WAREHOUSE && (name.includes(opt2.subject) || (opt2.attachment && name.includes(opt2.attachment)))) return false;
-      return name.includes(route.attachment);
+    return parsed.attachments.filter((a) => a.filename && EXCEL_FILE.test(a.filename))
+      .map((a) => ({ filename: a.filename!, content: a.content }));
+  }
+
+  private matchingAttachments(files: { filename: string; content: Buffer }[], route: MailRoute, routes: MailRoute[]) {
+    const otherMarkers = route.warehouseCode === CENTRAL_WAREHOUSE
+      ? [
+          ...Object.entries(knownMailSubjects).filter(([code]) => code !== CENTRAL_WAREHOUSE).flatMap(([, markers]) => markers),
+          ...routes.filter((r) => r.warehouseCode !== CENTRAL_WAREHOUSE).flatMap((r) => [...r.subjects, r.attachment]),
+          'central price geely',
+        ].filter(Boolean)
+      : [];
+    return files.filter(({ filename }) => {
+      const name = mailKey(filename);
+      return name.includes(route.attachment) && !otherMarkers.some((marker) => name.includes(marker));
     });
-    if (attachments.length !== 1) return undefined;
-    return { filename: attachments[0].filename!, content: attachments[0].content };
+  }
+
+  private async findPriceAttachment(client: ImapFlow, candidate: Candidate, routes: MailRoute[]) {
+    const route = routes.find((r) => r.warehouseCode === candidate.warehouseCode)!;
+    const files = this.matchingAttachments(await this.spreadsheetAttachments(client, candidate), route, routes);
+    return files.length === 1 ? files[0] : undefined;
+  }
+
+  private async configuredRoutes() {
+    const legacy = mailRoutes();
+    const stored = await this.prisma.warehouse.findMany({
+      where: { mailSubjects: { isEmpty: false } },
+      select: { code: true, mailSubjects: true, mailAttachment: true, mailSheet: true, mailColumns: true },
+    });
+
+    const active: MailRoute[] = stored.map((row) => ({
+      warehouseCode: row.code,
+      from: this.feedSender(row.code, legacy),
+      subjects: row.mailSubjects.map(mailKey).filter(Boolean),
+      attachment: mailKey(row.mailAttachment ?? ''),
+      enabled: true,
+      format: {
+        sheet: row.mailSheet ?? undefined,
+        columns: row.mailColumns as PriceFormat['columns'] ?? undefined,
+      },
+    }));
+    return [...active, ...legacy.filter((r) => !active.some((a) => a.warehouseCode === r.warehouseCode))];
+  }
+
+  private feedSender(code: string, routes: MailRoute[]) {
+    return routes.find((route) => route.warehouseCode === code)?.from || mailKey(process.env.PRICE_MAIL_FROM ?? '');
+  }
+
+  async mailOverview() {
+    const status = this.getStatus();
+    const routes = await this.configuredRoutes();
+    return {
+      enabled: status.enabled,
+      lastCheckOkAt: status.lastCheckOkAt,
+      lastFailureAt: status.lastFailureAt,
+      consecutiveFailures: status.consecutiveFailures,
+      supplierMail: status.supplierMail,
+      feeds: routes.map(({ warehouseCode, subjects, attachment, enabled, format }) =>
+        ({ warehouseCode, subjects, attachment, enabled, ...format })),
+    };
+  }
+
+  private async findPreview(dto: MailRequest) {
+    const subjects = [...new Set(dto.subjects.map(mailKey))];
+    if (subjects.some((subject) => subject.length < 5)) throw new BadRequestException('Укажите постоянную часть темы письма.');
+    const warehouse = await this.prisma.warehouse.findUnique({ where: { code: dto.warehouseCode } });
+    if (!warehouse) throw new BadRequestException('Выберите существующий склад.');
+    const routes = mailRoutes();
+    const from = this.feedSender(dto.warehouseCode, routes);
+    if (!from || !process.env.PRICE_IMAP_USER || !process.env.PRICE_IMAP_PASSWORD) {
+      throw new ServiceUnavailableException('Почтовый ящик или адрес поставщика не настроен.');
+    }
+    const columns = Object.fromEntries(Object.entries(dto.columns ?? {}).filter(([, v]) => v?.trim()).map(([k,v]) => [k, v.trim()]));
+    const format: PriceFormat = { sheet: dto.sheet?.trim() || undefined, columns };
+    const route = {
+      warehouseCode: dto.warehouseCode, from, subjects, attachment: mailKey(dto.attachment ?? ''), enabled: true, format,
+    };
+    const client = this.createClient();
+    try {
+      await client.connect();
+      const { candidates } = await this.scanMail(client, await this.resolveFolders(client), [route]);
+      const candidate = candidates.sort((a,b) => b.date.getTime() - a.date.getTime())[0];
+      if (!candidate) throw new BadRequestException('У настроенного отправителя не найдено свежего письма с этой темой.');
+      const attachments = await this.spreadsheetAttachments(client, candidate);
+      const files = this.matchingAttachments(attachments, route, routes);
+      if (files.length !== 1) {
+        throw new BadRequestException(files.length > 1
+          ? 'Уточните имя вложения. Найдены: ' + files.map((f) => f.filename).join(', ')
+          : 'В последнем письме нет подходящего вложения .xls или .xlsx.');
+      }
+      const file = files[0];
+      const sheets = inspectPriceList(file.content);
+      const previewId = createHash('sha256').update(JSON.stringify([route, candidate.messageId, candidate.date]))
+        .update(file.content).digest('hex');
+      let parsed;
+      let parseError;
+      const central = dto.warehouseCode === CENTRAL_WAREHOUSE;
+      try {
+        const data = parsePriceList(file.content, {
+          envPrefix: central ? 'PRICE_' : dto.warehouseCode === CHERY_WAREHOUSE ? 'PRICE_MSK_OPT2_' : undefined,
+          brandFilter: central ? undefined : warehouse.brandFilter ?? undefined,
+          format,
+        });
+        const articles = [...new Set(data.rows.map((row) => articleKey(row.code)))];
+        const [{ centralMatches }] = await this.prisma.$queryRaw<{ centralMatches: number }[]>`
+          SELECT count(*)::int AS "centralMatches" FROM "Product"
+          WHERE "isActive" AND upper(btrim(code)) = ANY(${articles}::text[])
+        `;
+        parsed = {
+          sheet: data.sheet, columns: data.columns, articles: articles.length, invalidPrices: data.badPriceRows,
+          available: data.rows.filter((row) => row.stock && row.stock >= (row.pack ?? warehouse.defaultPackQty)).length,
+          centralMatches,
+          singleUnits: data.rows.filter((row) => row.stock && (row.pack ?? warehouse.defaultPackQty) === 1).length,
+        };
+        if (!data.columns.stock) parseError = 'Укажите колонку с остатком для выбранного склада.';
+        if (!articles.length) parseError = 'В выбранном листе нет позиций для этого склада.';
+      } catch (error) {
+        parseError = (error as Error).message;
+      }
+      return {
+        candidate, file, route, format, previewId,
+        details: { subject: candidate.subject, receivedAt: candidate.date, fileName: file.filename, sheets, parsed, parseError, previewId },
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.warn('Could not read the latest supplier attachment');
+      throw new ServiceUnavailableException('Не удалось прочитать письмо или таблицу поставщика.');
+    } finally {
+      await client.logout().catch(() => client.close());
+    }
+  }
+
+  async previewMail(dto: MailRequest) {
+    return (await this.findPreview(dto)).details;
+  }
+
+  async connectMail(dto: MailRequest & { previewId: string }) {
+    if (process.env.PRICE_SYNC_ENABLED !== 'true') throw new ServiceUnavailableException('Автоимпорт почты выключен.');
+    const { candidate, file, route, previewId, details } = await this.findPreview(dto);
+    if (dto.previewId !== previewId) throw new ConflictException('Письмо или настройки изменились. Сначала обновите предпросмотр.');
+    if (details.parseError || !details.parsed) throw new BadRequestException(details.parseError ?? 'Проверьте таблицу.');
+    const format: PriceFormat = { sheet: details.parsed.sheet, columns: details.parsed.columns };
+    const result = await importPriceList(this.prisma, file.content, {
+      source: 'email', fileName: file.filename, messageId: candidate.messageId,
+      messageUid: candidate.uid, receivedAt: candidate.date,
+    }, {
+      warehouseCode: dto.warehouseCode,
+      format,
+      mailRule: {
+        mailSubjects: route.subjects,
+        mailAttachment: route.attachment || null,
+        mailSheet: format.sheet ?? null,
+        mailColumns: format.columns as Prisma.InputJsonValue ?? Prisma.DbNull,
+      },
+    });
+    if (result.warehouseCode !== dto.warehouseCode || result.status !== 'APPLIED') {
+      throw new ConflictException(result.error ?? 'Файл уже обработан в другом складе или появился более свежий прайс.');
+    }
+    return { warehouseCode: result.warehouseCode, fileName: result.fileName, rows: result.rows, status: result.status };
   }
 
   private record(candidate: Candidate, error?: string) {

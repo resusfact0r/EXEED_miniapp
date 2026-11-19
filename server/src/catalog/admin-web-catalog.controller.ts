@@ -67,8 +67,11 @@ export class AdminWebCatalogController {
     return this.service.addWarehouse(dto);
   }
 
-  @Get('imports') @Header('Cache-Control', 'no-store') imports() {
-    return this.service.imports();
+  @Get('imports') @Header('Cache-Control', 'no-store') imports(@Query('warehouse') warehouse?: string) {
+    if (warehouse !== undefined && (typeof warehouse !== 'string' || !WAREHOUSE_CODE.test(warehouse))) {
+      throw new BadRequestException('Выберите склад.');
+    }
+    return this.service.imports(warehouse);
   }
 
   @Post('warehouses/:code/import')

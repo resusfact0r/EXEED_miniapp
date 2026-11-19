@@ -7,6 +7,8 @@ const { execFileSync } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const { Test } = require('@nestjs/testing');
 const { ValidationPipe } = require('@nestjs/common');
+const { PriceSyncModule } = require('../dist/price-sync/price-sync.module');
+const { PriceSyncService } = require('../dist/price-sync/price-sync.service');
 const { CatalogModule } = require('../dist/catalog/catalog.module');
 const { WebCatalogService } = require('../dist/catalog/web-catalog.service');
 const { importPriceList } = require('../dist/price-sync/import-price-list');
@@ -63,12 +65,16 @@ test('HTTP guest orders, owner isolation and idempotency against a migrated Post
     delete process.env.ORDER_NOTIFY_CHAT_IDS;
     delete process.env.AVTOLIGA_CS_STORE_ID;
     process.env.ADMIN_API_TOKEN = 'test-admin';
+    process.env.PRICE_SYNC_ENABLED = 'false';
     process.env.AVTOLIGA_MARKUP_PERCENT = '14';
     const prisma = path.resolve('node_modules/.bin/prisma');
     const beforeUpgrade = path.join(dir, 'before-upgrade');
     fs.cpSync(path.resolve('prisma'), beforeUpgrade, {
       recursive: true,
-      filter: (name) => !name.includes('20261118000200_warehouse_offers'),
+      filter: (name) => {
+        const entry = path.basename(name);
+        return !/^\d{14}_/.test(entry) || entry < '20261118000200';
+      },
     });
     const oldSchema = path.join(beforeUpgrade, 'schema.prisma');
     execFileSync(prisma, ['migrate', 'deploy', '--schema', oldSchema], { stdio: 'pipe' });
@@ -78,7 +84,7 @@ test('HTTP guest orders, owner isolation and idempotency against a migrated Post
               VALUES ('before-upgrade', 'WARE-LEGACY', 'Позиция до миграции', 123.45, 40, 20, NOW());`,
     });
     execFileSync(prisma, ['migrate', 'deploy'], { stdio: 'pipe' });
-    const module = await Test.createTestingModule({ imports: [WebCheckoutModule, CatalogModule, PrismaModule] })
+    const module = await Test.createTestingModule({ imports: [WebCheckoutModule, CatalogModule, PriceSyncModule, PrismaModule] })
       .overrideProvider(AvtoligaService)
       .useValue({
         getLivePrices: async () => new Map([['WEBTEST', { price: 399, stockQty: 2, packQty: 1 }]]),
@@ -130,6 +136,9 @@ test('HTTP guest orders, owner isolation and idempotency against a migrated Post
     await app.get(WebOrders).sync();
     await t.test('supplier price snapshots, exact analogue links and the chosen warehouse survive into the order', () =>
       exerciseCatalog({ app, origin, db, dto }),
+    );
+    await t.test('mail attachment preview and confirmation link a distinct warehouse and preserve the central feed', () =>
+      exerciseMail({ app, origin, db }),
     );
   } finally {
     if (app) await app.close();
@@ -258,4 +267,70 @@ async function exerciseCatalog({ app, origin, db, dto }) {
   catalog.invalidate();
   assert.deepEqual((await readProduct('WARE-001AA')).offers.map((o) => o.warehouse), ['cs']);
   await assert.rejects(orders.price([{ code: 'WARE-001AA', warehouse: 'msk-opt-2', quantity: 1 }]), { status: 409 });
+}
+
+async function exerciseMail({ app, origin, db }) {
+  const headers = { 'x-admin-token': 'test-admin', 'Content-Type': 'application/json' };
+  const service = app.get(PriceSyncService);
+  process.env.PRICE_IMAP_USER = 'store@example.invalid';
+  process.env.PRICE_IMAP_PASSWORD = 'fixture';
+  process.env.PRICE_MAIL_FROM = 'vendor@example.invalid';
+  process.env.PRICE_MAIL_SUBJECT = 'прайс';
+  process.env.PRICE_SYNC_ENABLED = 'true';
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+    ['Артикул', 'Наименование', 'Цена', 'Склад Geely ЦС'],
+    ['GE-008', 'Запчасть Geely', 125, 8],
+  ]), 'Товары');
+  const encoded = XLSX.write(book, { bookType: 'xlsx', type: 'base64' });
+  const source = Buffer.from([
+    'From: vendor@example.invalid',
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/mixed; boundary="check"',
+    '',
+    '--check',
+    'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name="geely.xlsx"',
+    'Content-Disposition: attachment; filename="geely.xlsx"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    encoded,
+    '--check--',
+  ].join('\r\n'));
+  const messageDate = new Date('2026-11-19T11:30:01.000Z');
+  service.createClient = () => ({
+    connect: async () => {},
+    list: async () => [],
+    mailboxOpen: async (_folder, options) => assert.equal(options.readOnly, true),
+    search: async (options) => { assert.equal(options.from, 'vendor@example.invalid'); return [7]; },
+    fetch: async function* () {
+      yield { uid: 7, internalDate: messageDate, envelope: {
+        messageId: '<geely-fixture@vendor.example.invalid>',
+        from: [{ address: 'vendor@example.invalid' }], subject: 'Прайс. Склад Geely ЦС от 19.11.2026',
+      }};
+    },
+    fetchOne: async () => ({ source }),
+    logout: async () => {},
+  });
+  const post = (endpoint, payload) => fetch(origin + '/admin/catalog/mail/' + endpoint, {
+    method: 'POST', headers, body: JSON.stringify(payload),
+  });
+  const rules = { warehouseCode: 'geely-cs', subjects: ['Склад Geely ЦС'], columns: { stock: 'Склад Geely ЦС' } };
+  assert.equal((await fetch(origin + '/admin/catalog/mail')).status, 401);
+  await service.runOnce();
+  assert.equal(await db.product.count({ where: { code: 'GE-008' } }), 0, 'central fallback must never import the Geely file');
+  const inspected = await post('preview', rules);
+  assert.equal(inspected.status, 201, inspected.status === 201 ? '' : await inspected.text());
+  const preview = await inspected.json();
+  assert.equal(preview.fileName, 'geely.xlsx');
+  assert.equal(preview.parsed.articles, 1);
+  assert.equal(preview.parsed.available, 1);
+  assert.equal(await db.product.count({ where: { code: 'GE-008' } }), 0, 'preview only reads the file');
+  assert.equal((await post('connect', { ...rules, previewId: 'a'.repeat(64) })).status, 409);
+  const connected = await post('connect', { ...rules, previewId: preview.previewId });
+  assert.equal(connected.status, 201, connected.status === 201 ? '' : await connected.text());
+  assert.equal((await connected.json()).status, 'APPLIED');
+  assert.equal((await db.warehouse.findUnique({ where: { code: 'geely-cs' } })).mailSubjects[0], 'склад geely цс');
+  const log = await fetch(origin + '/admin/catalog/imports?warehouse=geely-cs', { headers }).then((res) => res.json());
+  assert.deepEqual(log.map((row) => [row.fileName, row.warehouseCode]), [['geely.xlsx', 'geely-cs']]);
+  assert.equal((await db.warehouseOffer.findMany({ where: { warehouseCode: 'geely-cs' } }))[0].stockQty, 8);
 }

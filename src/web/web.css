@@ -304,3 +304,11 @@ svg { flex-shrink: 0; }
 .admin-card-list small, .admin-log small { display: block; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
 .admin-log li { padding: 10px 0; }
 @media (max-width: 700px) { .admin-columns { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+
+.admin-mail { padding: 14px 0; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+.admin-mail summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.admin-mail form { margin-top: 12px; }
+.admin-mail form details > label { margin: 8px 0; }
+.admin-mail-preview { margin-top: 16px; overflow-wrap: anywhere; }
+.history-filter { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.history-filter select { max-width: 100%; min-width: 0; }

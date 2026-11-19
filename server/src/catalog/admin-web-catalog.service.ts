@@ -118,8 +118,9 @@ export class AdminWebCatalogService {
       });
   }
 
-  imports() {
+  imports(warehouse?: string) {
     return this.prisma.priceImport.findMany({
+      where: warehouse ? { warehouseCode: warehouse } : undefined,
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: 20,
       select: {

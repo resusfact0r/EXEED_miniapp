@@ -21,7 +21,7 @@ export interface ParsedPriceList {
   columns: Record<string, string>;
 }
 
-type Field = 'code' | 'name' | 'price' | 'stock' | 'pack' | 'brand' | 'originalCode';
+export type Field = 'code' | 'name' | 'price' | 'stock' | 'pack' | 'brand' | 'originalCode';
 
 // Header names seen in supplier price lists. Matched after lowercasing and folding ё/е. Order
 // within a field matters: the first pattern that matches some column wins, so exact names come
@@ -46,6 +46,48 @@ const ENV_OVERRIDES: Record<Field, string> = {
   originalCode: 'COL_ORIGINAL',
 };
 const HEADER_SEARCH_ROWS = 30;
+
+export interface PriceFormat {
+  sheet?: string;
+  columns?: Partial<Record<Field, string>>;
+}
+
+function readWorkbook(buffer: Buffer) {
+  return XLSX.read(buffer, { type: 'buffer', cellDates: false, raw: true, codepage: 65001 });
+}
+
+function readGrid(workbook: XLSX.WorkBook, sheet: string) {
+  return XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheet], {
+    header: 1, raw: false, defval: '', blankrows: false,
+  });
+}
+
+export function inspectPriceList(buffer: Buffer) {
+  const workbook = readWorkbook(buffer);
+  return workbook.SheetNames.slice(0, 30).map((sheet) => {
+    const grid = readGrid(workbook, sheet);
+    let header = grid.findIndex((row, index) => {
+      if (index >= HEADER_SEARCH_ROWS) return false;
+      const columns = findColumns(row);
+      return columns.code !== undefined && columns.price !== undefined;
+    });
+    if (header < 0) header = grid.findIndex((row) => row.filter(Boolean).length >= 2);
+    const titles = (grid[header] ?? []).slice(0, 40).map((value) => String(value).trim().slice(0, 140));
+    const detected = findColumns(grid[header] ?? []);
+    const brands = new Map<string, number>();
+    if (detected.brand !== undefined) {
+      for (const row of grid.slice(header + 1)) {
+        const brand = String(row[detected.brand] ?? '').trim().slice(0, 80);
+        if (brand) brands.set(brand, (brands.get(brand) ?? 0) + 1);
+      }
+    }
+    return {
+      sheet, columns: titles, dataRows: Math.max(0, grid.length - header - 1),
+      brands: [...brands.entries()].sort((a,b) => b[1] - a[1]).slice(0, 20)
+        .map(([brand, rows]) => ({ brand, rows })),
+    };
+  });
+}
 
 const fold = (v: unknown) => String(v ?? '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
 const brandKey = (value?: string) => fold(value) === 'чери' ? 'chery' : fold(value);
@@ -92,14 +134,14 @@ export function parseStock(value: unknown): number | null {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null;
 }
 
-function findColumns(header: unknown[], envPrefix?: string): Partial<Record<Field, number>> {
+function findColumns(header: unknown[], envPrefix?: string, format?: PriceFormat): Partial<Record<Field, number>> {
   const cells = header.map(fold);
   const found: Partial<Record<Field, number>> = {};
   for (const field of Object.keys(HEADER_PATTERNS) as Field[]) {
-    const override = envPrefix && process.env[envPrefix + ENV_OVERRIDES[field]];
+    const override = format?.columns?.[field] || (envPrefix && process.env[envPrefix + ENV_OVERRIDES[field]]);
     if (override) {
       const at = cells.indexOf(fold(override));
-      if (at >= 0) found[field] = at;
+      if (at >= 0 && !Object.values(found).includes(at)) found[field] = at;
       continue;
     }
     for (const pattern of HEADER_PATTERNS[field]) {
@@ -119,23 +161,19 @@ function findColumns(header: unknown[], envPrefix?: string): Partial<Record<Fiel
  */
 export function parsePriceList(
   buffer: Buffer,
-  options: { envPrefix?: string; brandFilter?: string } = { envPrefix: 'PRICE_' },
+  options: { envPrefix?: string; brandFilter?: string; format?: PriceFormat } = { envPrefix: 'PRICE_' },
 ): ParsedPriceList {
   // raw: false keeps cells as displayed text, so long article numbers don't turn into 1.23E+11.
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false, raw: true, codepage: 65001 });
+  const workbook = readWorkbook(buffer);
 
   for (const sheetName of workbook.SheetNames) {
-    const selectedSheet = options.envPrefix && process.env[options.envPrefix + 'SHEET'];
+    const selectedSheet = options.format?.sheet || (options.envPrefix && process.env[options.envPrefix + 'SHEET']);
     if (selectedSheet && fold(sheetName) !== fold(selectedSheet)) continue;
-    const grid = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], {
-      header: 1,
-      raw: false,
-      defval: '',
-      blankrows: false,
-    });
+    const grid = readGrid(workbook, sheetName);
 
     for (let h = 0; h < Math.min(grid.length, HEADER_SEARCH_ROWS); h++) {
-      const cols = findColumns(grid[h], options.envPrefix);
+      const cols = findColumns(grid[h], options.envPrefix, options.format);
+      if (options.format?.columns && Object.keys(options.format.columns).some((field) => cols[field as Field] === undefined)) continue;
       if (cols.code === undefined || cols.price === undefined) {
         continue;
       }

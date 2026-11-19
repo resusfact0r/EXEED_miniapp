@@ -9,7 +9,7 @@ import {
   MAX_STOCK,
   validArticle,
 } from '../catalog/offers';
-import { parsePriceList, type PriceRow } from './excel-parser';
+import { parsePriceList, type PriceFormat, type PriceRow } from './excel-parser';
 
 export interface PriceImportSource {
   source: 'email' | 'file';
@@ -22,6 +22,13 @@ export interface PriceImportSource {
 export interface PriceImportOptions {
   warehouseCode?: string;
   snapshot?: boolean;
+  format?: PriceFormat;
+  mailRule?: {
+    mailSubjects: string[];
+    mailAttachment: string | null;
+    mailSheet: string | null;
+    mailColumns: Prisma.InputJsonValue | typeof Prisma.DbNull;
+  };
   /** Overrides the shrinkage check for intentional snapshots loaded with the CLI. */
   force?: boolean;
 }
@@ -48,6 +55,7 @@ export async function importPriceList(
     const parsed = parsePriceList(buffer, {
       envPrefix: central ? 'PRICE_' : warehouseCode === CHERY_WAREHOUSE ? 'PRICE_MSK_OPT2_' : undefined,
       brandFilter: warehouse?.brandFilter ?? undefined,
+      format: options.format,
     });
     const parsedRows = parsed.rows.map((row) => ({
       ...row,
@@ -66,9 +74,14 @@ export async function importPriceList(
     return await prisma.$transaction(
       async (tx) => {
         await lockCatalogWrites(tx);
-        if (meta.messageId) {
-          const previous = await tx.priceImport.findUnique({ where: { messageId: meta.messageId } });
-          if (previous) return previous;
+        const previous = meta.messageId
+          ? await tx.priceImport.findUnique({ where: { messageId: meta.messageId } })
+          : null;
+        if (previous && (!options.mailRule || previous.warehouseCode !== warehouseCode || previous.status === 'APPLIED')) {
+          if (previous.status === 'APPLIED' && previous.warehouseCode === warehouseCode && options.mailRule) {
+            await tx.warehouse.update({ where: { code: warehouseCode }, data: options.mailRule });
+          }
+          return previous;
         }
         if (meta.source === 'email' && meta.receivedAt) {
           const newer = await tx.priceImport.findFirst({
@@ -80,7 +93,12 @@ export async function importPriceList(
             },
             select: { id: true },
           });
-          if (newer) return tx.priceImport.create({ data: { ...audit, rows, status: 'SKIPPED' } });
+          if (newer) {
+            const data = { ...audit, rows, status: 'SKIPPED' as const, error: 'У склада есть более свежий прайс' };
+            return previous
+              ? tx.priceImport.update({ where: { id: previous.id }, data })
+              : tx.priceImport.create({ data });
+          }
         }
 
         if (snapshot && !options.force) {
@@ -107,7 +125,13 @@ export async function importPriceList(
           ON CONFLICT DO NOTHING
         `;
         }
-        return tx.priceImport.create({ data: { ...audit, rows, ...stats, status: 'APPLIED' } });
+        if (options.mailRule) {
+          await tx.warehouse.update({ where: { code: warehouseCode }, data: options.mailRule });
+        }
+        const data = { ...audit, rows, ...stats, error: null, status: 'APPLIED' as const };
+        return previous
+          ? tx.priceImport.update({ where: { id: previous.id }, data })
+          : tx.priceImport.create({ data });
       },
       { timeout: 120_000, maxWait: 10_000 },
     );

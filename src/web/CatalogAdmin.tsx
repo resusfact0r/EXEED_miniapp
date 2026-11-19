@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { CatalogOffer } from '../../server/src/catalog/offers';
 import { SHOP_WAREHOUSE } from '../../server/src/catalog/offers';
 import { OfferList } from './ProductOffers';
+import { MailImportPanel } from './MailImportPanel';
 import { api, ApiError, request } from './orders';
 
 type Card = {
@@ -55,6 +56,7 @@ export function CatalogAdmin() {
   const [page, setPage] = useState(1);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [imports, setImports] = useState<Import[]>([]);
+  const [historyWarehouse, setHistoryWarehouse] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -74,6 +76,7 @@ export function CatalogAdmin() {
     setCards(undefined);
     select(undefined);
     setImports([]);
+    setHistoryWarehouse('');
     setWarehouses([]);
     setMessage('');
   }
@@ -100,10 +103,18 @@ export function CatalogAdmin() {
     setPage(currentPage);
   }
 
+  function historyPath(code = historyWarehouse) {
+    return code ? '/imports?' + new URLSearchParams({ warehouse: code }) : '/imports';
+  }
+  async function refreshImports(code = historyWarehouse) {
+    setImports(await admin<Import[]>(historyPath(code)));
+    setHistoryWarehouse(code);
+  }
+
   async function loadWarehouses() {
     const [stock, history] = await Promise.all([
       admin<Warehouse[]>('/warehouses'),
-      admin<Import[]>('/imports'),
+      admin<Import[]>(historyPath()),
     ]);
     setWarehouses(stock);
     setImports(history);
@@ -202,7 +213,7 @@ export function CatalogAdmin() {
           : `Строк в файле: ${result.rows}. Добавлено связей: ${result.added}.`,
       );
       form.reset();
-      if (kind === 'stock') setImports(await admin<Import[]>('/imports'));
+      if (kind === 'stock') setImports(await admin<Import[]>(historyPath()));
     });
   }
 
@@ -395,6 +406,15 @@ export function CatalogAdmin() {
                     </button>
                   </form>
                   <h2>История загрузок</h2>
+                  <label className="history-filter">
+                    Склад <select value={historyWarehouse} onChange={(event) => {
+                      const code = event.target.value;
+                      void run(() => refreshImports(code));
+                    }} disabled={busy}>
+                      <option value="">Все склады</option>
+                      {warehouses.map((warehouse) => <option key={warehouse.code} value={warehouse.code}>{warehouse.name}</option>)}
+                    </select>
+                  </label>
                   {imports.length === 0 && <p>Загрузок пока нет.</p>}
                   <ul className="admin-log">
                     {imports.map((item) => (
@@ -413,6 +433,7 @@ export function CatalogAdmin() {
                   </ul>
                 </section>
                 <section>
+                  <MailImportPanel token={token} warehouses={warehouses} onImported={() => refreshImports()}/>
                   <h2>Добавить склад</h2>
                   <form className="checkout-form" onSubmit={addWarehouse}>
                     <label>

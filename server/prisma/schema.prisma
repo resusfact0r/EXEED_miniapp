@@ -94,6 +94,10 @@ model Warehouse {
   defaultPackQty Int              @default(1)
   retail         Boolean          @default(false)
   brandFilter    String?
+  mailSubjects   String[]         @default([])
+  mailAttachment String?
+  mailSheet      String?
+  mailColumns    Json?
   offers         WarehouseOffer[]
 }
 
