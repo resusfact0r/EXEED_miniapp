@@ -1,3 +1,4 @@
+import { WAREHOUSE_CODE } from '../../server/src/catalog/offers';
 import { filterWebProducts, type NavigationProduct, type WebFilters, type webMetadata } from '../../server/src/catalog/web-taxonomy';
 
 export type { NavigationProduct, WebFilters };
@@ -19,7 +20,17 @@ function validProduct(product: NavigationProduct) {
     && typeof product.price === 'string' && product.price.trim() && Number.isFinite(Number(product.price)) && Number(product.price) >= 0
     && Number.isSafeInteger(product.stockQty) && product.stockQty >= 0 && Number.isSafeInteger(product.packQty) && product.packQty >= 1
     && [product.brands, product.models, product.categories].every((values) => Array.isArray(values) && values.every((value) => typeof value === 'string'))
-    && (product.description == null || typeof product.description === 'string') && (product.imageUrl == null || typeof product.imageUrl === 'string'));
+    && (product.description == null || typeof product.description === 'string') && (product.imageUrl == null || typeof product.imageUrl === 'string')
+    && (product.images === undefined || (Array.isArray(product.images) && product.images.length <= 4 && product.images.every((url) => typeof url === 'string')))
+    && (product.originalArticles === undefined || (Array.isArray(product.originalArticles) && product.originalArticles.every((code) => typeof code === 'string')))
+    && (product.offers === undefined || (Array.isArray(product.offers) && product.offers.length > 0 && product.offers.every((offer) =>
+      offer && typeof offer.warehouse === 'string' && WAREHOUSE_CODE.test(offer.warehouse) && typeof offer.warehouseName === 'string'
+      && typeof offer.price === 'string' && Number.isFinite(Number(offer.price)) && Number(offer.price) >= 0
+      && Number.isSafeInteger(offer.stockQty) && offer.stockQty >= 0 && Number.isSafeInteger(offer.packQty) && offer.packQty >= 1)))
+    && (product.vehicleApplications === undefined || (Array.isArray(product.vehicleApplications) && product.vehicleApplications.length > 0
+      && product.vehicleApplications.every((application) => application && typeof application.brand === 'string' && typeof application.model === 'string'
+        && typeof application.configuration === 'string' && typeof application.checkedDate === 'string'
+        && (application.modelYearFrom === undefined || (Number.isSafeInteger(application.modelYearFrom) && application.modelYearFrom >= 1886 && application.modelYearFrom <= 2200))))));
 }
 
 async function snapshot() {

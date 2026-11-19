@@ -72,7 +72,7 @@ export class CdekService {
       url.searchParams.set('country_code', 'RU');
       url.searchParams.set('name', query.trim());
 
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) {
         throw new Error(`CDEK API responded with ${response.status}`);
       }
@@ -142,7 +142,7 @@ export class CdekService {
    * the phone never downloads the full list, and CDEK sees one request per city per TTL
    * instead of one per keystroke.
    */
-  private async getAllPvzForCity(cityCode: number): Promise<NormalizedPvz[]> {
+  async getAllPvzForCity(cityCode: number): Promise<NormalizedPvz[]> {
     const cached = this.pvzCache.get(cityCode);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.items;
@@ -159,7 +159,7 @@ export class CdekService {
       url.searchParams.set('city_code', String(cityCode));
       url.searchParams.set('size', String(MAX_PVZ_PER_CITY));
 
-      const response = await fetch(url, {
+      const response = await fetch(url, { signal: AbortSignal.timeout(10000),
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -187,6 +187,15 @@ export class CdekService {
     }
   }
 
+  async carrier(path: string, init: RequestInit = {}) {
+    const token = await this.getAccessToken();
+    return fetch(new URL(path, process.env.CDEK_API_BASE_URL || 'https://api.cdek.ru'), {
+      ...init,
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    });
+  }
+
   private async getAccessToken(): Promise<string> {
     if (this.tokenCache && this.tokenCache.expiresAt > Date.now()) {
       return this.tokenCache.token;
@@ -198,6 +207,7 @@ export class CdekService {
 
     const response = await fetch(new URL('/v2/oauth/token', baseUrl), {
       method: 'POST',
+      signal: AbortSignal.timeout(10000),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'client_credentials',

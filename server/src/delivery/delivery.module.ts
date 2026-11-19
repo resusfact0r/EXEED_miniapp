@@ -5,6 +5,7 @@ import { CdekService } from './cdek.service';
 import { YandexService } from './yandex.service';
 
 @Module({
+  exports: [CdekService],
   controllers: [DeliveryController],
   providers: [CdekService, YandexService],
 })

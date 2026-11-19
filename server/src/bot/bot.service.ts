@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 
 import { Prisma, type Order, type User } from '@prisma/client';
@@ -111,6 +112,13 @@ export class BotService {
 
     switch (command) {
       case '/start':
+        if (/^w_[a-f0-9]{48}$/.test(args[0] || '') && isPrivate && chatId===message?.from?.id) {
+          const claimHash=createHash('sha256').update(args[0].slice(2)).digest('hex');
+          const {count}=await this.prisma.webOrder.updateMany({where:{claimHash,claimUntil:{gt:new Date()}},
+            data:{chat:String(chatId),claimHash:null,claimUntil:null,notice:null}});
+          await callTelegram('sendMessage',{chat_id:chatId,text:count?'Уведомления по заказу подключены.':'Откройте заказ на сайте и запросите новую ссылку.'});
+          return;
+        }
         if (args[0]?.startsWith('p_')) {
           return this.sendProductLink(chatId, args[0].slice(2));
         }

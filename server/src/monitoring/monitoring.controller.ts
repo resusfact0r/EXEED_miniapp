@@ -51,12 +51,12 @@ export class MonitoringController {
     const [lastApplied, lastImport, awaitingLink, awaitingPayment, inWork, createdLastDay, activeProducts] =
       await Promise.all([
         this.prisma.priceImport.findFirst({
-          where: { status: 'APPLIED', source: 'email' },
+          where: { warehouseCode: 'cs', status: 'APPLIED', source: 'email' },
           orderBy: { receivedAt: 'desc' },
           select: { receivedAt: true, createdAt: true, rows: true, fileName: true },
         }),
         this.prisma.priceImport.findFirst({
-          where: { status: { not: 'SKIPPED' } },
+          where: { warehouseCode: 'cs', status: { not: 'SKIPPED' } },
           orderBy: { createdAt: 'desc' },
           select: { status: true, createdAt: true, rows: true, error: true },
         }),

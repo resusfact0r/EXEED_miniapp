@@ -1,0 +1,1949 @@
+{
+  "checkedDate": "2026-11-18",
+  "articles": {
+    "10010242": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "10010242",
+        "witness": "7b56f91c4e4c9afa918bcdff5b9a359cc3a720bcf5f84a56550f9268c10f0389"
+      }
+    ],
+    "110400018AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "110400018AA",
+        "witness": "43cb55ebf4322dbc37bb6020edd68f7d3e840686c81b60650c3d1affd113536a"
+      },
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "110400018AA",
+        "witness": "18bb6867d35103b7f63d279495bc9d141811ea59b26029e7f17e4d6ff1f55e2c"
+      }
+    ],
+    "110500003AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "110500003AA",
+        "witness": "ba95424a52646a77125977e7e2fe696caa6b3520f98ba64eb05e955367266bc7"
+      },
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "110500003AA",
+        "witness": "c29cbc71609e2993777d85403f1de5e8e04ccfd2fcad78038ded32c27e85094c"
+      }
+    ],
+    "110600009AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "110600009AA",
+        "witness": "255d47d55f8b8541c2be0a81ac097c56d96bb5637ffc03ffa5065afa3d2fa8a8"
+      },
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "110600009AA",
+        "witness": "158bb5d89cca3cd14cb2a5334bdd686dd4034248a5de2153bfab60839e1ca9f2"
+      }
+    ],
+    "111100018AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "111100018AA",
+        "witness": "9edaa17f16e8ccc8d74cbbde7c2f4069033b5e97998c22ecb49bdc52e8e73096"
+      },
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "111100018AA",
+        "witness": "34a4bad2e895a68eb4fef9bfbff74f10a4484b1d2d0332398468dc840c5cd89f"
+      }
+    ],
+    "113000870AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "113000870AA",
+        "witness": "861fafe50f6875442869c101ee62b2e2debe6a0240c4d3b0390e28a2bd69a2c8"
+      }
+    ],
+    "121000048AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "121000048AA",
+        "witness": "79bf969d6eb62f64383e4e4afc907030c12bea2ba20ccb8fda932d792c5deb4e"
+      }
+    ],
+    "131000774AA": [
+      {
+        "platform": "E03REEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ES REEV",
+          "configuration": "E03 REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "131000774AA",
+        "witness": "9a1ebce7a1f8e3b110412634e1c6a276b43294c881c2efe1a853f870c463f2f3"
+      },
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "131000774AA",
+        "witness": "2d904260d2df17ce52a89b89d7fb6c68dad17bf7b2eda4a7dbcbafaa48368d72"
+      }
+    ],
+    "151000139AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "151000139AA",
+        "witness": "46359742941a2c695292b739ee646ddd68b83b55957f6fb97429201e8c6c5c88"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "151000139AA",
+        "witness": "a3fa32f295b4e30c8cc0ef9fe0a7db7c7f19c24fe564e2e394e4380337651781"
+      }
+    ],
+    "151000256AA": [
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "151000256AA",
+        "witness": "7e9595889729ead62fa538736798b14e30f0b955a0827dd3d6129da1030a15d2"
+      }
+    ],
+    "151000316AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "151000316AA",
+        "witness": "6ea75aa5b4afbc4b6f0e0b2254b4bfe17f3f19dc6e197515e48ac9d1e67e5cd6"
+      }
+    ],
+    "154000341AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "154000341AA",
+        "witness": "a2238ab30104b821eebc82b958872dd9141f1cd2be55130aac817a6fed37d34d"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "154000341AA",
+        "witness": "215918ad8a8af60bb66dd6a5b56753ace3be2041f304afa9de6ed1dc1e682c4b"
+      }
+    ],
+    "155000809AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "155000809AA",
+        "witness": "832f2e50739ce95daa1564890a385a0b36170e3c52ebfc7c5e41ae926e6d574b"
+      }
+    ],
+    "155001261AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "155001261AA",
+        "witness": "f2a9c30b210afab637f81a96f209dfc3fca8e22293a6adf4d993f34462803143"
+      }
+    ],
+    "155001274AA": [
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "155001274AA",
+        "witness": "d4446cb108330666ddaac16fbdc15ce39dd6f3a12e3970930bb1140c04e4036f"
+      }
+    ],
+    "155001275AA": [
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "155001275AA",
+        "witness": "aeedb07928b380dc48935bf5daa96a8dd9c86d6386bdceacc2273a005d968686"
+      }
+    ],
+    "201000086AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "201000086AA",
+        "witness": "91142cd8a22f2464b0cf028c3f7637724bf9301a641a2312050b0993099f7606"
+      }
+    ],
+    "202000114AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000114AA",
+        "witness": "76b091c6a1328362bc5385c4535ac31261fcae86014ef1d0178947f6cdad67c9"
+      }
+    ],
+    "202000120AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000120AA",
+        "witness": "1a72762df5ae93363edfee61596290c6682455eefdbee12380ddb45c73666a50"
+      }
+    ],
+    "202000130AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000130AA",
+        "witness": "224e41634a836dac4f02bb37bedcd15e3fc89f2ecf7554d22dd7cf3fa0198ab0"
+      }
+    ],
+    "202000131AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000131AA",
+        "witness": "77a254dfde5017cc8987f0572bd21f10184fc2fc5793e04887cb35ee1ce853c3"
+      }
+    ],
+    "202000144AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000144AA",
+        "witness": "07a7657dc46635befe07c2e80faba66c4e46f03d5ff06a2faacec9e7dfcf05f9"
+      }
+    ],
+    "202000167AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000167AA",
+        "witness": "d3a236956b322cc10c625fdd7ca66b65e3b35448d7ecd5b755b884d5f8de9ad9"
+      }
+    ],
+    "202000665AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "202000665AA",
+        "witness": "f926cb9ec3fbbdc87193a4d768daa780e0ee8eebd5521bb0d438e25b448aaaf5"
+      },
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000665AA",
+        "witness": "23a6eda22d39e17eb7a74006b6cb9337248d6567d80f9cb9db6fc1ec10fbbd04"
+      }
+    ],
+    "202000668AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "202000668AA",
+        "witness": "39847eea1e806259762181fc841d26b47a61849c78fe2c838256013d8d1fe5b5"
+      },
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000668AA",
+        "witness": "ad747acc372452df28a80d0d3ac3dcbf1752681d685e2a8412d587a3c5989948"
+      }
+    ],
+    "202000677AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202000677AA",
+        "witness": "f07a0c71abb542367e631bcb95546f7a5d77816d352637341b2ed8d3085340c9"
+      }
+    ],
+    "202001971AA": [
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202001971AA",
+        "witness": "dda8c61b946998d39a5c0eef4260a2f8786d41c45e0e452debd8a0de472e1903"
+      }
+    ],
+    "202004275AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202004275AA",
+        "witness": "9519cba6685795710f470bb47c297b5c57c4cbddc343dd5023ef8fc4f506cd51"
+      }
+    ],
+    "202004578AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "202004578AA",
+        "witness": "76f1c775538308033624ae01d4de923f3ba51b96e3e1379141917de2d6526969"
+      }
+    ],
+    "203000130AAACG": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "203000130AAACG",
+        "witness": "06f2368a1646a5383ef89eb6d33c305883a3ffc1a15705e09b3e46ae13042cec"
+      }
+    ],
+    "203000292AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "203000292AA",
+        "witness": "b0bd297fe1d3f2629166ad536e5a0f8a22acf1766ca64c25e694880605a4f109"
+      }
+    ],
+    "204000205AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "204000205AA",
+        "witness": "c4cd2b4e1b2d9ebb40bcff6ba9e34a2e1bd4c852caa16511e183498855cf828e"
+      }
+    ],
+    "204001529AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "204001529AA",
+        "witness": "f244a4bc9b9452372c40fde311d5027952e436d4096d21277c930a105fd02481"
+      }
+    ],
+    "205000013AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "205000013AA",
+        "witness": "c8077eaf7f88db6da0f875f9b11fca683123364166ad9de9d9e3eb6ad89f8a70"
+      }
+    ],
+    "205000103AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "205000103AA",
+        "witness": "a3765025a1ef96907378e23cba0da751781c7171a2f35232ccce718b14af2aad"
+      }
+    ],
+    "205000117AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "205000117AA",
+        "witness": "2f4a80d039e0e3230a8d9b0a4700c68e45fa7a3b025c57bbd0e6ff51ccda3fd0"
+      }
+    ],
+    "206000347AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "206000347AA",
+        "witness": "6f2a2742c8ad01eb121fbf14bd159774ed7c5e34cadcb1b16760c8819d2ec64c"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "206000347AA",
+        "witness": "629cd8f951ca4f16990a758502322709a095c1d487e6b95563d5d80cdb9ad093"
+      },
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "206000347AA",
+        "witness": "b2e339dbbf24504534eb2a23ca0e8cc18e7e06aeaee0a54757e9526f378834d5"
+      }
+    ],
+    "301000093AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "301000093AA",
+        "witness": "e51fe34a758f8f7bbad38bc91e3935cf895ac9c40b41cf470720c95109ffe5f3"
+      }
+    ],
+    "301001631AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "301001631AA",
+        "witness": "95e75800da6d2dcdbbffd1979efd78b732666ebf0336c70e573ca35bfb28e8cd"
+      }
+    ],
+    "301001792AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "301001792AA",
+        "witness": "386f3acd256b4ed7e8ae29884dd6ba53e06422af60b20d9b528b42e3940b6e93"
+      }
+    ],
+    "301001796AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "301001796AA",
+        "witness": "7c310818a574d929c9be816ddc3b7c03661bf8d01f304e52f26edf8343fa6f0e"
+      }
+    ],
+    "301001830AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "301001830AA",
+        "witness": "aa2be3fd4749e608e5d39688846f55b8b4e8b0e93da062642b8fe4120ae07974"
+      }
+    ],
+    "302000308AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "302000308AA",
+        "witness": "0fa997d04370b2e1b461a8b69a6f9832dbc34377dd7d3e7a9608f236a1d8a86e"
+      }
+    ],
+    "302000715AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "302000715AA",
+        "witness": "22f868a88af6465eebb21f27b9d8671d02611d6a430e87b7ec834133b8dc43da"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "302000715AA",
+        "witness": "02c3843a15b29b5497f9ee08e75bf68bbff70e66e239e9014c0ec1d66e2dcdae"
+      }
+    ],
+    "402000728ADABK": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "402000728ADABK",
+        "witness": "36fe3b6dc42edbfe4d8565d03dfc5f53ff17abd37b07285ed068098eb1bbcfef"
+      }
+    ],
+    "402009347AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "402009347AA",
+        "witness": "5362a5c66057daf4ba81747690c8081cca5ac32f9bdd12ef5e1b8130ad10b72f"
+      }
+    ],
+    "403001805AAABK": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403001805AAABK",
+        "witness": "3fa150895f93f6d808aaf5eb1e0b16c962a595f9e2f3f1d8900bd6374073013a"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "403001805AAABK",
+        "witness": "dc8071c72ad9a103fd2bfc360f60a02cce1b5bd4a5a28996e83529f0b4aea5a8"
+      }
+    ],
+    "403003811AAABK": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403003811AAABK",
+        "witness": "f403d04a4dac86979504ea94df30c5d5c8879c539c435a74f0cd7197ebc1f1e9"
+      }
+    ],
+    "403004664AAAGY": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403004664AAAGY",
+        "witness": "1ab0cc08be20758373061681d8498cafb5154ca31b366691da20470863677be3"
+      }
+    ],
+    "403006203AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "403006203AA",
+        "witness": "2d3187ab135a02a2d72d63131c5310cbb6de0c0965c2e46f0cd56285a78b93cc"
+      }
+    ],
+    "403006215AAABE": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403006215AAABE",
+        "witness": "7229dd5bd0eb6acadd82bc7cf22f20e0a67a062ab08a040f2004cf0b7683ad62"
+      }
+    ],
+    "403009832AAAGY": [
+      {
+        "platform": "E03REEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ES REEV",
+          "configuration": "E03 REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403009832AAAGY",
+        "witness": "4677591267b627d12f172fb402e26145c01fc7163ef0781c28ac96cb8c21cb10"
+      }
+    ],
+    "403010628AA": [
+      {
+        "platform": "E03REEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ES REEV",
+          "configuration": "E03 REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403010628AA",
+        "witness": "a798a1977c00bae66a777ecd92220ad5800a5e3058620e2fe121ce7e51b52de5"
+      }
+    ],
+    "403010631AA": [
+      {
+        "platform": "E03REEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ES REEV",
+          "configuration": "E03 REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403010631AA",
+        "witness": "92fc1a9f9ee54596f362562ab9793d1f464c171820782a655e51a5d3350696d7"
+      }
+    ],
+    "403011133AAABK": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403011133AAABK",
+        "witness": "cf592648e7bda6c67d9f4e955c32598f292378d9d54b9c0ff9c47889467d5b3e"
+      }
+    ],
+    "403011793AAABK": [
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403011793AAABK",
+        "witness": "9410eccf20d5964664a3689d9a02147c7f3e2d0405020eff6ceb0dbb6072203a"
+      }
+    ],
+    "403012700AAABK": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "403012700AAABK",
+        "witness": "9aa9246bc363e2f393176cf379b3bb49e58fdecac1a12d0ee1bd8cdda24581b7"
+      }
+    ],
+    "404000817AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "404000817AA",
+        "witness": "ec94dedc673d0728ed7eb138afaf017bd083327c58d6ae09c5ac5f814e45913d"
+      }
+    ],
+    "406000156AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "406000156AA",
+        "witness": "7f1fcfe53c0c400ea9dfcb637a282b433c43a878313528dab43ef451a239c102"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "406000156AA",
+        "witness": "2d2e3ad05e10fe13e89f2b3874fcfcec3c397010339386282b9a6946c79fd365"
+      }
+    ],
+    "503000145AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "503000145AA",
+        "witness": "81a9a8ef66bced80063aea1e86661a7b5ecbbf4f5b2f15d8d3e57dbab7f54c68"
+      }
+    ],
+    "509001139AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001139AADYJ",
+        "witness": "c0d2e56edfe168050b75f157bbce22abb2f73b1c8457bff5433adb36e34b4ea0"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001139AADYJ",
+        "witness": "0b3066e388f07dcdd00d59853b31435135165a2b3c51b198c02d3c50acc9f378"
+      }
+    ],
+    "509001140AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001140AADYJ",
+        "witness": "450cfd3f7492168337585dcc93e8ef4e0394c25e452d09f33545c48672023e36"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001140AADYJ",
+        "witness": "8a1e4d7307ac6b7e50e394ea7db2fbc3cbf251d54e430da211816cfc2bc193d2"
+      }
+    ],
+    "509001141AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001141AADYJ",
+        "witness": "ee7282adf772203c1dcfe28b04fe3589b636bef5273e69ea81679484a325a496"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001141AADYJ",
+        "witness": "65279f160f98d633c74eb68c60a5d6f583fe476c8313e4667f5de0168e4fca03"
+      }
+    ],
+    "509001142AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001142AADYJ",
+        "witness": "09d32ae2abfcaa59a02ff64ebb6c73f4303e81f579741a625f0381eccb227c91"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001142AADYJ",
+        "witness": "4405742c1b4450b3d91d32a156357c360a1763ccca5da810c364a35c33afdc73"
+      }
+    ],
+    "509001143AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001143AADYJ",
+        "witness": "8c18d307cdc5be10dead0a88d8e301d132fb9bdbb4cc34b3297a1ace04522038"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001143AADYJ",
+        "witness": "c25aed8ea2a8fab8ba30f3a233bc66eae239ae8833db62d1d8f16ac101edc4b1"
+      }
+    ],
+    "509001145AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001145AADYJ",
+        "witness": "40b8bbb903fe205562978cc4ce19b3399910bee3442df861b881809669678b8f"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001145AADYJ",
+        "witness": "f43a383b64e706b80aaffe92f8eeadb936858829ea66f86abed219efede15314"
+      }
+    ],
+    "509001146AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001146AADYJ",
+        "witness": "7b2beae3f1bfb2f3102469515665cf9e8a8668821e4d5f49603b49c7f2cf9da7"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001146AADYJ",
+        "witness": "4fc23e70d9926c55d0bad376594026637f8ed4b1e7281f126796b8754cbe753f"
+      }
+    ],
+    "509001147AADYJ": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "509001147AADYJ",
+        "witness": "fa39803655a0f741c8dc633a67076bd60da0d6928e341f0285bfb99f49260faf"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "509001147AADYJ",
+        "witness": "8f57997641dde12e6ce1a62c7971a3ec379a1bc2256d917db3db510feba1cb3d"
+      }
+    ],
+    "553000424AADYJ": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "553000424AADYJ",
+        "witness": "54f0a75807c450647579e06a01dbe08bde19bc004a3bd808dbad1c6b953623b2"
+      }
+    ],
+    "554001714AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "554001714AA",
+        "witness": "aab74c6cdaba6d83975767523074d0d55e9b4c23dad6b83afb905bc929523abd"
+      }
+    ],
+    "555000424AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "555000424AA",
+        "witness": "c9df5a640663bf6097706bf09515013fc18961994458965f47640b671053b4d3"
+      }
+    ],
+    "601000248AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "601000248AA",
+        "witness": "7a97cd034ec8ce8a1d598da3daead131b61246b122c98f92b7f1d460da690b17"
+      }
+    ],
+    "601001385AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "601001385AA",
+        "witness": "636054316a00f1f4657688c95504950d1acebdf7d744b05c8315d211ffa9ce90"
+      }
+    ],
+    "602000316AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602000316AA",
+        "witness": "cf4650e02a78a0eb110f557a3dc368e9c82195a946d049ab9b466aab97ef421e"
+      }
+    ],
+    "602000317AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602000317AA",
+        "witness": "f1c1c63a2964537ad55a3b0e6be601b5906235bd422b43fff4fac338aff29177"
+      }
+    ],
+    "602000352AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602000352AA",
+        "witness": "2a0704de829c1914502f70f8c35bcbc6e917dbdc66b4df8f7d89f729ce848a19"
+      }
+    ],
+    "602000353AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602000353AA",
+        "witness": "544681bfd022e68939abb65e8f9b10d032fda26adcec59a6cf19820ea40e1956"
+      }
+    ],
+    "602000355AAAKC": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602000355AAAKC",
+        "witness": "a55a48124c5693a8f83beb91edeb301824e76623c38d1b274df3f4c89d072586"
+      }
+    ],
+    "602000385AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602000385AA",
+        "witness": "44b8e7e9f662bf61ee940549c36208d649b76315d6213ac5f1d6b1770945d0c0"
+      }
+    ],
+    "602000733AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602000733AA",
+        "witness": "adf10f854b986fb5d8f6e9e13b662228926a419c7639559cd18bd89571e4defb"
+      }
+    ],
+    "602002656AB": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "602002656AB",
+        "witness": "c2c4a97811301c75ea3617d058a702fc02341826dee4fe891ba52e6059d24e30"
+      }
+    ],
+    "602004735AA": [
+      {
+        "platform": "E03REEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ES REEV",
+          "configuration": "E03 REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602004735AA",
+        "witness": "8f1436e5009f1277d1d20ff0b2698798ec0a3981283ed0a3da98c964f51786be"
+      }
+    ],
+    "602007103AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "602007103AA",
+        "witness": "b93d98fedd17a921f8c14d5ad99326c689a877352522818ac85d09dc396c74b4"
+      }
+    ],
+    "605000185AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "605000185AA",
+        "witness": "0dcd33ed335e7dd1a24461ee00142f78a4a685983fbaebea90718e0a72a316ed"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "605000185AA",
+        "witness": "a52a71c080251af50dae04131e73c2f91edfd051cbfec69647032aa83e62365b"
+      }
+    ],
+    "605000716AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "605000716AA",
+        "witness": "075b8e19a1b840079a409290ed15b9791924e2f3cf281b633f5cdb47756a91a6"
+      }
+    ],
+    "608000253AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "608000253AA",
+        "witness": "2e6d48b3d2f672b21531c180bdc19aef214b70210158274c8970ebb6247ae339"
+      }
+    ],
+    "608000255AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "608000255AA",
+        "witness": "0b8258003c2c4b54694f8c06fc5b51ba4bceed15d22abc830120bad0ad7f7379"
+      }
+    ],
+    "609000319AADQJ": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "609000319AADQJ",
+        "witness": "74d130c66d8f9c56324f80f199783d5502aec66f172b2c70d1db0a33b07a040f"
+      }
+    ],
+    "609000320AADQJ": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "609000320AADQJ",
+        "witness": "e9800651094423026f368a8dbbfbf5320c4309309448a307a19cb47ac4152b37"
+      }
+    ],
+    "609000321AADQJ": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "609000321AADQJ",
+        "witness": "59926d8ef0f25fe02e14960f8fb2ef744fdab26204daf5b4ec14847ff6142081"
+      }
+    ],
+    "609000322AAACB": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "609000322AAACB",
+        "witness": "804bcaf1cb725619d04345177242cff308720f664e1e738d389ed0dd0d1d36b9"
+      }
+    ],
+    "609000322AADQJ": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "609000322AADQJ",
+        "witness": "bf254cd17a0302d61811a6f44aeb93b9e28211d23b036dbcd8f18f78d395f97e"
+      }
+    ],
+    "609000363AAACB": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "609000363AAACB",
+        "witness": "27fdfe9d72712a01c2959d20272945ab58ba85dab8c641a6c39027285f9f1c23"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "609000363AAACB",
+        "witness": "26691b0b466021a8d7efc0d61e72097a233bc65da07e1c0f4db5fcd2cb07afb1"
+      }
+    ],
+    "609000406AAAKW": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "609000406AAAKW",
+        "witness": "d4f3776ed3cae003c4592e53988ad78e3f5cb1bcea2cd95d872ceeaca072fa5f"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "609000406AAAKW",
+        "witness": "10aa765ef913ac31a962430c63c4a9d2dce20d02f4b7756417cb46a9e797f9bb"
+      }
+    ],
+    "609000407AAAKW": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "609000407AAAKW",
+        "witness": "c44539d5ea66828b022e906ec2ab6df047502187f1a2e0bfa4839fd78a698e49"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "609000407AAAKW",
+        "witness": "52a1a10a66e36c19f1bceaea49d8dca8059ac3f0264dfb844756fa5bb34fb477"
+      }
+    ],
+    "609001404AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "609001404AA",
+        "witness": "d6e615389c64ff33a611ceb37b8ce18a60eb96d9ef71c985981cd606c32365e3"
+      }
+    ],
+    "702000119AAABW": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "702000119AAABW",
+        "witness": "c02246f92fb9e3aa94fb7be8a5ca157afef1a4c25d454e3cd53f6a852ade3415"
+      }
+    ],
+    "703001685AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "703001685AA",
+        "witness": "09d1884881f326f903e3e08195595610c09ebba84ba8f1695ee4c77cfba79814"
+      }
+    ],
+    "703002088AA": [
+      {
+        "platform": "T22PHEV",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX PHEV",
+          "configuration": "M38T PHEV · H4J15 · 3DHT165",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "703002088AA",
+        "witness": "f54f8a37ba4bf8d013d040345cf6c02b60df528e395b76172d77e3fdadf63dcb"
+      }
+    ],
+    "703002581AA": [
+      {
+        "platform": "E03REEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ES REEV",
+          "configuration": "E03 REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "703002581AA",
+        "witness": "047a1a37ebb0829009996aad6cdecf71f923df80314d31e1148b86cc6e4b0a95"
+      }
+    ],
+    "704000551AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "704000551AA",
+        "witness": "c55a9ceb5bf55cfbc1e7e820c27292ec8731934dca14ef7e047379a8348fef55"
+      }
+    ],
+    "704000552AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "704000552AA",
+        "witness": "bcf07cc1da3eef16da1f7e4d7f2b62fcf2188ae082b2c6b4883c701a0dbfc0ac"
+      }
+    ],
+    "704000784AA": [
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "704000784AA",
+        "witness": "1a1fad7e5783812f0cc00210aacf18df01db6450702c01eb058fc655dc082814"
+      }
+    ],
+    "704000870AAACL": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "704000870AAACL",
+        "witness": "385af5a788eae4404d5c1c5906007f8347ce60e598f3e9310e40544edfed0eb1"
+      }
+    ],
+    "802000396AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "802000396AA",
+        "witness": "e6497371f893807042c70da1e1903a8999da321ae97c0eec721163b0e8ac4b97"
+      }
+    ],
+    "804000120AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "804000120AA",
+        "witness": "e316b9d190e1d7d0c7e786cf35378f05f9beb8d9407255013ddbc5b3ca1cf667"
+      }
+    ],
+    "804000121AA": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "804000121AA",
+        "witness": "b6293e227ccd186a688e76fb2ab12057fa00a07fd796a516deb16ad3297a6efa"
+      }
+    ],
+    "804000236AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "804000236AA",
+        "witness": "66076cf85c3909a50966e6f1847d9de2e408b5319b245e0e2a9796fb4bcf758a"
+      }
+    ],
+    "804000257AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "804000257AA",
+        "witness": "54d004ecec260ee8c52892a59d87a56ec45840e8805198c3304bf273e59b7d53"
+      }
+    ],
+    "804000375AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "804000375AA",
+        "witness": "1fd6a9ec5f1b12aaa90fa136f547d873187829ac48480a864cabc564bada50ad"
+      }
+    ],
+    "806011456AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "806011456AA",
+        "witness": "68f83ffd3b810ce640e19af9e978ac74e71a16e16038f74558f4196a0ad33da7"
+      }
+    ],
+    "806023537AA": [
+      {
+        "platform": "E03REEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ES REEV",
+          "configuration": "E03 REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "806023537AA",
+        "witness": "5e14c249f51984038a5246f34ab552c62a0d71a0b2e6367e23f9ef63f2ce7f8b"
+      }
+    ],
+    "807000419AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "807000419AA",
+        "witness": "4ac02ee78e309251289a5721022496db4a7000b2a34401f600d736eaaf7fbf2a"
+      },
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "807000419AA",
+        "witness": "b20da107a47122a74ee4cf77287310e17d1f0bf5237fc49729dbcda0209d1700"
+      }
+    ],
+    "808001067AA": [
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "808001067AA",
+        "witness": "6700c1f7abb7443b621c31cd89022368b4a61c54304f4e1813ba660f04ec9f96"
+      }
+    ],
+    "808001266AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "808001266AA",
+        "witness": "5aafcea0c9d197de50ad237a7f1b9632f3e1c1e39ebb772bbcb6fe0e27c8f657"
+      }
+    ],
+    "808001267AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "808001267AA",
+        "witness": "0cab146b5b0096d16f752da92a0085e306f1ae802d743f74421d20b952762756"
+      }
+    ],
+    "808001672AA": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "808001672AA",
+        "witness": "3ee3e5950c8748e81ed86dab2492694047f0c3d5fc876df1ebff370f846cb3cc"
+      }
+    ],
+    "F4J201002010": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "F4J20-1002010",
+        "witness": "1d7cb30e33dfec67553b1846af2e173a24890a9ca8e7da1de785483ea9f0daa5"
+      },
+      {
+        "platform": "M36TFL",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX FL",
+          "configuration": "M36TFL · SQRF4J20 · 8AT",
+          "checkedDate": "2026-11-18",
+          "modelYearFrom": 2024
+        },
+        "article": "F4J20-1002010",
+        "witness": "98ae942ffabca03d5a1e60339bb87e525ca50fda09b5cb6fc33873308e50001a"
+      },
+      {
+        "platform": "T22",
+        "application": {
+          "brand": "EXEED",
+          "model": "RX",
+          "configuration": "M38T · F4J20C · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "F4J20-1002010",
+        "witness": "2536fd183eeaaac01241e5d179ebf59e420799d14eed2f067f3133bd1d79cd6b"
+      }
+    ],
+    "F4J201128031AB": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "F4J20-1128031AB",
+        "witness": "8797fd17c737b55b462d07a276b460a29df162dc027c54bc02668d2dd961169a"
+      }
+    ],
+    "J604102711": [
+      {
+        "platform": "E0YREEV",
+        "application": {
+          "brand": "EXLANTIX",
+          "model": "ET REEV",
+          "configuration": "E0Y REEV · H4J15 · 1DHT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "J60-4102711",
+        "witness": "4cb61cc604ef86809608485f51a0f482249b39259679d82728f578acb6ab3d0b"
+      }
+    ],
+    "M36T6GN3501087": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "M36T-6GN3501087",
+        "witness": "4bbf6e8b474502fb7794f6d68f6ee0ec06949241bd28b363d6c408b043f107ae"
+      }
+    ],
+    "T9002073": [
+      {
+        "platform": "M36T",
+        "application": {
+          "brand": "EXEED",
+          "model": "VX",
+          "configuration": "M36T · 2.0T · 7DCT",
+          "checkedDate": "2026-11-18"
+        },
+        "article": "T9002073",
+        "witness": "988eafcf85b5d9ae24447f931c58b63b7e57d7c7734dde67966268c0a1ca53f2"
+      }
+    ]
+  }
+}

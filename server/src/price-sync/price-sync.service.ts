@@ -5,6 +5,8 @@ import { simpleParser } from 'mailparser';
 import { callTelegram } from '../bot/telegram-api';
 import { PrismaService } from '../prisma/prisma.service';
 import { describeImport, importPriceList } from './import-price-list';
+import { CENTRAL_WAREHOUSE, CHERY_WAREHOUSE } from '../catalog/offers';
+import { mailKey, mailRoutes, routeMail } from './mail-routing';
 
 const DEFAULT_INTERVAL_MIN = 10;
 // Only recent mail is looked at: the price list arrives several times a day and only the newest
@@ -34,6 +36,7 @@ export interface PriceSyncStatus {
 
 interface Candidate {
   folder: string;
+  warehouseCode: string;
   uid: number;
   messageId: string;
   date: Date;
@@ -145,8 +148,10 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
     const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
     // Everything from the sender, filtered by subject here rather than in the IMAP query: the
     // emails that don't match are what explains a stale price list.
-    const query: Record<string, unknown> = { from: process.env.PRICE_MAIL_FROM, since };
-    const subjectFilter = process.env.PRICE_MAIL_SUBJECT?.toLowerCase();
+    const routes = mailRoutes();
+    const from = [...new Set(routes.filter((r) => r.enabled && r.from).map((r) => r.from))];
+    if (!from.length) return;
+    const query = from.length === 1 ? { from: from[0], since } : { or: from.map((sender) => ({ from: sender })), since };
 
     const candidates: Candidate[] = [];
     const seen = new Set<string>();
@@ -168,7 +173,8 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
         seen.add(messageId);
         const date = internalDate ?? (msg.envelope?.date ? new Date(msg.envelope.date) : new Date(0));
         const subject = msg.envelope?.subject ?? '';
-        const matched = !subjectFilter || subject.toLowerCase().includes(subjectFilter);
+        const route = routeMail(msg.envelope?.from?.map((sender) => sender.address ?? '') ?? [], subject, routes);
+        const matched = Boolean(route?.enabled);
 
         // "Прайс … от 03.11.2026" -> one entry per mailing, not per day.
         const key = subject.replace(/\s*от\s+\d{2}\.\d{2}\.\d{4}\s*$/, '').trim() || '(без темы)';
@@ -177,8 +183,8 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
         if (date.toISOString() > entry.lastAt) entry.lastAt = date.toISOString();
         bySubject.set(key, entry);
 
-        if (matched) {
-          candidates.push({ folder, uid: msg.uid, messageId, date });
+        if (route?.enabled) {
+          candidates.push({ folder, uid: msg.uid, messageId, date, warehouseCode: route.warehouseCode });
         }
       }
     }
@@ -192,46 +198,44 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
       select: { messageId: true },
     });
     const knownIds = new Set(known.map((k) => k.messageId));
-    const lastApplied = await this.prisma.priceImport.findFirst({
-      where: { status: 'APPLIED', source: 'email' },
-      orderBy: { receivedAt: 'desc' },
-      select: { receivedAt: true },
-    });
-
-    const fresh = candidates
-      .filter((c) => !knownIds.has(c.messageId))
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
-
-    let applied = false;
-    for (const candidate of fresh) {
-      // Anything older than the newest list already applied - or than the one just applied in
-      // this pass - is out of date: record it so it isn't looked at again, but don't apply it.
-      if (applied || (lastApplied?.receivedAt && candidate.date <= lastApplied.receivedAt)) {
-        await this.record(candidate, 'SKIPPED');
-        continue;
-      }
-
-      const attachment = await this.findPriceAttachment(client, candidate);
-      if (!attachment) {
-        await this.record(candidate, 'SKIPPED', undefined, 'В письме нет вложения .xls/.xlsx');
-        continue;
-      }
-
-      const result = await importPriceList(this.prisma, attachment.content, {
-        source: 'email',
-        messageUid: candidate.uid,
-        messageId: candidate.messageId,
-        receivedAt: candidate.date,
-        fileName: attachment.filename,
+    for (const route of routes.filter((r) => r.enabled)) {
+      const lastApplied = await this.prisma.priceImport.findFirst({
+        where: { warehouseCode: route.warehouseCode, status: 'APPLIED', source: 'email' },
+        orderBy: { receivedAt: 'desc' },
+        select: { receivedAt: true },
       });
-      this.logger.log(`Price list ${attachment.filename}: ${result.status}, ${result.rows} rows`);
-      // A routine successful update arrives silently; problems ring.
-      await this.report(describeImport(result), result.status === 'APPLIED');
-      applied = result.status === 'APPLIED';
+      const fresh = candidates
+        .filter((c) => c.warehouseCode === route.warehouseCode && !knownIds.has(c.messageId))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+      let applied = false;
+      for (const candidate of fresh) {
+        if (applied || (lastApplied?.receivedAt && candidate.date <= lastApplied.receivedAt)) {
+          await this.record(candidate);
+          continue;
+        }
+
+        const attachment = await this.findPriceAttachment(client, candidate, routes);
+        if (!attachment) {
+          await this.record(candidate, 'Нет однозначно выбранного вложения .xls/.xlsx');
+          continue;
+        }
+
+        const result = await importPriceList(this.prisma, attachment.content, {
+          source: 'email',
+          messageUid: candidate.uid,
+          messageId: candidate.messageId,
+          receivedAt: candidate.date,
+          fileName: attachment.filename,
+        }, { warehouseCode: candidate.warehouseCode });
+        this.logger.log(`Price list ${candidate.warehouseCode}/${attachment.filename}: ${result.status}, ${result.rows} rows`);
+        applied = result.status === 'APPLIED';
+        await this.report(describeImport(result), applied).catch(() => this.logger.warn('Price list report was not sent'));
+      }
     }
   }
 
-  private async findPriceAttachment(client: ImapFlow, candidate: Candidate) {
+  private async findPriceAttachment(client: ImapFlow, candidate: Candidate, routes: ReturnType<typeof mailRoutes>) {
     // With the mailbox opened read-only, fetching the body can't set \Seen.
     await client.mailboxOpen(candidate.folder, { readOnly: true });
     const message = await client.fetchOne(String(candidate.uid), { source: true }, { uid: true });
@@ -239,22 +243,29 @@ export class PriceSyncService implements OnModuleInit, OnApplicationShutdown {
       return undefined;
     }
     const parsed = await simpleParser(message.source);
-    const attachment = parsed.attachments.find((a) => a.filename && EXCEL_FILE.test(a.filename));
-    return attachment ? { filename: attachment.filename as string, content: attachment.content } : undefined;
+    const route = routes.find((r) => r.warehouseCode === candidate.warehouseCode)!;
+    const opt2 = routes.find((r) => r.warehouseCode === CHERY_WAREHOUSE)!;
+    const attachments = parsed.attachments.filter((a) => {
+      if (!a.filename || !EXCEL_FILE.test(a.filename)) return false;
+      const name = mailKey(a.filename);
+      if (route.warehouseCode === CENTRAL_WAREHOUSE && (name.includes(opt2.subject) || (opt2.attachment && name.includes(opt2.attachment)))) return false;
+      return name.includes(route.attachment);
+    });
+    if (attachments.length !== 1) return undefined;
+    return { filename: attachments[0].filename!, content: attachments[0].content };
   }
 
-  private record(candidate: Candidate, status: 'SKIPPED', fileName?: string, error?: string) {
-    return this.prisma.priceImport.create({
-      data: {
-        source: 'email',
-        messageUid: candidate.uid,
-        messageId: candidate.messageId,
-        receivedAt: candidate.date,
-        fileName,
-        status,
-        error,
-      },
-    });
+  private record(candidate: Candidate, error?: string) {
+    const data = {
+      source: 'email',
+      warehouseCode: candidate.warehouseCode,
+      messageUid: candidate.uid,
+      messageId: candidate.messageId,
+      receivedAt: candidate.date,
+      status: 'SKIPPED' as const,
+      error,
+    };
+    return this.prisma.priceImport.upsert({ where: { messageId: candidate.messageId }, create: data, update: {} });
   }
 
   private createClient(): ImapFlow {

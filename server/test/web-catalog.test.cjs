@@ -21,11 +21,11 @@ before(async () => {
     { provide: CatalogService, useValue: {} }, { provide: CartService, useValue: {} }, { provide: OrdersService, useValue: {} }, {
     provide: PrismaService, useValue: { product: { findMany: async (args) => {
       reads++;
-      assert.equal(args.where.isActive, true);
+      assert.deepEqual(args.where.OR[0], { isActive: true });
       assert.equal(args.select.id, true);
       return [
-        { id: 'a', code: 'A001', name: 'Колодки EXEED TXL', price: { toString: () => '500.00' }, stockQty: 3, packQty: 1 },
-        { id: 'b', code: 'B002', name: 'Фильтр CHERY TIGGO 7 PRO', price: { toString: () => '600.00' }, stockQty: 20, packQty: 20 },
+        { images: [], offers: [], originals: [], isActive: true, id: 'a', code: 'A001', name: 'Колодки EXEED TXL', price: { toString: () => '500.00' }, stockQty: 3, packQty: 1 },
+        { images: [], offers: [], originals: [], isActive: true, id: 'b', code: 'B002', name: 'Фильтр CHERY TIGGO 7 PRO', price: { toString: () => '600.00' }, stockQty: 20, packQty: 20 },
       ];
     } } },
   }] }).compile();
@@ -56,7 +56,7 @@ test('malformed paging and search input cannot bypass validation', async () => {
 });
 after(async () => { await app?.close(); });
 
-test('anonymous catalog exposes only active products and text-derived navigation', async () => {
+test('anonymous catalog exposes only active products and navigation labels', async () => {
   const response = await fetch(`${origin}/api/web/catalog`);
   assert.equal(response.status, 200);
   const data = await response.json();
@@ -76,4 +76,20 @@ test('public search validates parameters, composes filters and never returns pri
   assert.equal((await fetch(`${origin}/api/web/products/A001`)).status, 200);
   assert.equal((await fetch(`${origin}/api/web/orders`)).status, 404);
   assert.equal(reads, 1, 'repeated requests share a one-minute catalog cache');
+});
+
+test('live catalog service returns reviewed configurations without supplier URLs', async () => {
+  const service = new WebCatalogService({ product: { findMany: async () => [
+    { images: [], offers: [], originals: [], isActive: true, id: 'source-a', code: '302001286AA', name: 'Впускной патрубок EXEED VX', price: { toString: () => '123.45' }, stockQty: 2, packQty: 1 },
+    { images: [], offers: [], originals: [], isActive: true, id: 'source-b', code: '302001286AB-UNREVIEWED', name: 'Патрубок', price: { toString: () => '222.22' }, stockQty: 1, packQty: 1 },
+  ] } });
+  const result = await service.search({ brand: 'EXEED', model: 'VX FL' });
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0].price, '123.45');
+  assert.equal((await service.search({ brand: 'EXEED', model: 'VX' })).total, 0);
+  const application = result.items[0].vehicleApplications.find((item) => item.model === 'VX FL');
+  assert.equal(application.modelYearFrom, 2024);
+  assert.match(application.configuration, /8AT/);
+  assert.doesNotMatch(JSON.stringify(result), /sourceUrl|schemeUrl|sourcePosition|catalogApplications|китайавто|xn--80aagvgd7a1ae/i);
+  assert.equal((await service.product('302001286AB-UNREVIEWED')).vehicleApplications, undefined);
 });

@@ -23,12 +23,12 @@ export class AvtoligaService {
    * callers should treat this as "cannot verify price right now", not as "product doesn't exist".
    * Codes with no matching live entry are simply absent from the returned map.
    */
-  async getLivePrices(codes: string[], quantities: Record<string, number> = {}): Promise<Map<string, LivePrice>> {
+  async getLivePrices(codes: string[], quantities: Record<string, number> = {}, storeId?: string): Promise<Map<string, LivePrice>> {
     const result = new Map<string, LivePrice>();
     for (let i = 0; i < codes.length; i += BATCH_SIZE) {
       const batch = codes.slice(i, i + BATCH_SIZE);
       const parts = await this.fetchBatch(batch, quantities);
-      this.mergeInto(result, parts, quantities);
+      this.mergeInto(result, parts, quantities, storeId);
     }
     return result;
   }
@@ -83,6 +83,7 @@ export class AvtoligaService {
     result: Map<string, LivePrice>,
     parts: AvtoligaPartsResponse['SpareParts'],
     quantities: Record<string, number>,
+    storeId?: string,
   ) {
     const vendorFilter = process.env.AVTOLIGA_VENDOR_FILTER ?? 'CHERY';
 
@@ -96,6 +97,7 @@ export class AvtoligaService {
 
       const wanted = quantities[part.Articul] ?? 1;
       for (const store of part.Prices) {
+        if (storeId && String(store.StoreId) !== storeId) continue;
         const candidate: LivePrice = {
           price: applyMarkup(store.Price),
           cost: store.Price,
