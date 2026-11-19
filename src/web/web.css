@@ -107,7 +107,7 @@ svg { flex-shrink: 0; }
 .pagination button { display: grid; place-items: center; border: 1px solid var(--line); border-radius: 5px; height: 44px; width: 44px; }
 .pagination > span > span { color: var(--muted); }
 .site-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--line); margin-top: 64px; padding: 25px 0 30px; color: #626c77; font-size: 11px; }
-.site-footer > div { display: flex; align-items: center; gap: 26px; }
+.site-footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 26px; }
 .site-footer button, .site-footer a { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; min-height: 32px; padding: 0; }
 .button { display: inline-flex; justify-content: center; align-items: center; gap: 10px; min-height: 46px; padding: 12px 18px; background: var(--accent); color: white; border: 1px solid transparent; border-radius: 6px; font-size: 13px; font-weight: 500; }
 .button:hover { background: #9e432d; }
@@ -238,7 +238,7 @@ svg { flex-shrink: 0; }
   .add-button { grid-column: 3; grid-row: 2; }
   .pagination { margin-top: 25px; font-size: 12px; gap: 18px; }
   .site-footer { margin-top: 43px; padding: 22px 0 28px; flex-direction: column-reverse; align-items: flex-start; gap: 18px; font-size: 10px; }
-  .site-footer > div { width: 100%; justify-content: space-between; gap: 15px; }
+  .site-footer > div { width: 100%; justify-content: space-between; gap: 2px 15px; }
   .site-footer button, .site-footer a { font-size: 11px; }
   .dialog-body { padding: 22px; }
   .dialog-header { margin-bottom: 20px; }

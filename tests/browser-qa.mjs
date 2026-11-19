@@ -379,8 +379,12 @@ try {
     });
   });
 
-  await scenario('catalog administrator can enter a card with images and original numbers from a mobile browser', () =>
-    fixture({ staff: true, path: '/?catalog-admin=1', width: 390, mobile: true }, async (page, state) => {
+  await scenario('catalog administrator opens the cabinet from the mobile footer and creates a card', () =>
+    fixture({ staff: true, width: 390, mobile: true }, async (page, state) => {
+      await ready(page);
+      await page.click('.site-footer a[href="?catalog-admin=1"]');
+      await page.waitForSelector('input[type=password]');
+      assert.equal(await page.$eval('h1', (heading) => heading.textContent), 'Управление каталогом');
       await page.type('input[type=password]', 'staff-test');
       await page.click('form .button');
       await page.waitForSelector('.admin-tabs');

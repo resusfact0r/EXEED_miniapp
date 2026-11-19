@@ -221,7 +221,14 @@ function Store() {
       </section>
     </main>
 
-    <footer className="container site-footer"><span>© {new Date().getFullYear()} EXEED Friends</span><div><button onClick={() => openModal('delivery')}>Доставка и оплата</button><a href={supportUrl} target="_blank" rel="noreferrer">Связаться с нами<Icon name="arrow" size={14}/></a></div></footer>
+    <footer className="container site-footer">
+      <span>© {new Date().getFullYear()} EXEED Friends</span>
+      <div>
+        <button onClick={() => openModal('delivery')}>Доставка и оплата</button>
+        <a href={supportUrl} target="_blank" rel="noreferrer">Связаться с нами<Icon name="arrow" size={14}/></a>
+        <a href="?catalog-admin=1">Кабинет администратора</a>
+      </div>
+    </footer>
     {toast && !modal && !detail && <div className="toast" role="status"><Icon name="check" size={17}/>{toast}</div>}
 
     {detail && <Dialog title="Деталь" feedback={toast} onClose={closeDetail}>
