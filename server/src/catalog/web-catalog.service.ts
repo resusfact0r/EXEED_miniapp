@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { articleKey, inStock } from './offers';
 import { activeWebProduct, productOffers } from './warehouse-offer';
@@ -6,7 +6,8 @@ import { classifyProduct, filterWebProducts, webMetadata, type NavigationProduct
 
 @Injectable()
 export class WebCatalogService {
-  private cached: { expires: number; products: NavigationProduct[] } | undefined;
+  private readonly logger = new Logger(WebCatalogService.name);
+  private cached: { expires: number; refreshStarted: boolean; products: NavigationProduct[] } | undefined;
   private pending: Promise<NavigationProduct[]> | undefined;
   private revision = 0;
 
@@ -19,8 +20,19 @@ export class WebCatalogService {
   }
 
   private async products(): Promise<NavigationProduct[]> {
-    if (this.cached && this.cached.expires > Date.now()) return this.cached.products;
-    if (this.pending) return this.pending;
+    const cached = this.cached;
+    const now = Date.now();
+    if (cached && cached.expires > now) {
+      if (!cached.refreshStarted && cached.expires - now <= 15_000) {
+        cached.refreshStarted = true;
+        void this.refresh().catch(() => this.logger.warn('Early catalog refresh failed; the next read after expiry will retry'));
+      }
+      return cached.products;
+    }
+    return this.pending ?? this.refresh();
+  }
+
+  private refresh(): Promise<NavigationProduct[]> {
     const revision = this.revision;
     this.pending = this.prisma.product.findMany({
       where: activeWebProduct,
@@ -43,7 +55,7 @@ export class WebCatalogService {
           ...classifyProduct({ code, name }),
         };
       });
-      if (revision === this.revision) this.cached = { expires: Date.now() + 60_000, products };
+      if (revision === this.revision) this.cached = { expires: Date.now() + 60_000, refreshStarted: false, products };
       return products;
     }).finally(() => { if (revision === this.revision) this.pending = undefined; });
     return this.pending;

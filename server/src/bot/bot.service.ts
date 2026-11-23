@@ -101,7 +101,7 @@ export class BotService {
       // A part question: tagging the bot in a group, replying to its message, or just writing to
       // it directly. A group in privacy mode doesn't pass plain mentions to bots - there /part
       // works, or the owner disables privacy in BotFather (see DEPLOYMENT-VPS.md).
-      const username = (await this.getUsername())?.toLowerCase();
+      const username = isPrivate ? undefined : (await this.getUsername())?.toLowerCase();
       const mentioned = Boolean(username && text.toLowerCase().includes(`@${username}`));
       const repliedToBot = Boolean(username && message?.reply_to_message?.from?.username?.toLowerCase() === username);
       if (isPrivate || mentioned || repliedToBot) {
@@ -230,7 +230,7 @@ export class BotService {
 
     // A Mini App button only works in a private chat; in a group the button opens the private
     // chat with the bot, which then offers the product (see sendProductLink).
-    const username = await this.getUsername();
+    const username = !isPrivate && card.orderable.length ? await this.getUsername() : null;
     const buttons = card.orderable.map((p) =>
       isPrivate
         ? [{ text: `Открыть ${p.code}`, web_app: { url: this.productUrl(p.id) } }]
