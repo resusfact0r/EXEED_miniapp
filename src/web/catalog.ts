@@ -45,7 +45,8 @@ async function snapshot() {
 
 async function live<T>(path: string): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  // A read that waits for the server to rebuild its catalog can take more than five seconds.
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
     const response = await fetch(`${base}/web/${path}`, { signal: controller.signal });
     if (!response.ok) throw new Error(`Catalog HTTP ${response.status}`);

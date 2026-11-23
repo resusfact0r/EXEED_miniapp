@@ -56,6 +56,48 @@ test('malformed paging and search input cannot bypass validation', async () => {
 });
 after(async () => { await app?.close(); });
 
+test('a busy catalog refreshes once before expiry and expired reads wait for that refresh', async (t) => {
+  let now = 0;
+  t.mock.method(Date, 'now', () => now);
+  let reads = 0;
+  let finishRefresh;
+  const service = new WebCatalogService({ product: { findMany: () => {
+    reads++;
+    if (reads === 1) return Promise.resolve([]);
+    return new Promise((resolve) => { finishRefresh = resolve; });
+  } } });
+  assert.equal((await service.metadata()).total, 0);
+  now = 50_000;
+  assert.equal((await service.metadata()).total, 0);
+  assert.equal((await service.metadata()).total, 0);
+  assert.equal(reads, 2);
+  now = 61_000;
+  const expired = service.metadata();
+  finishRefresh([{ id: 'a', code: 'NEW', name: 'Part', images: [], originals: [], offers: [],
+    isActive: true, price: '1', packQty: 1, stockQty: 1 }]);
+  assert.equal((await expired).total, 1);
+  assert.equal(reads, 2);
+});
+
+test('a failed early refresh leaves the fresh catalog usable and retries on expiry', async (t) => {
+  let now = 0;
+  let reads = 0;
+  t.mock.method(Date, 'now', () => now);
+  const service = new WebCatalogService({ product: { findMany: async () => {
+    if (++reads === 2) throw new Error('fixture database unavailable');
+    return [];
+  } } });
+  await service.metadata();
+  now = 55_000;
+  await service.metadata();
+  await new Promise((done) => setImmediate(done));
+  await service.metadata();
+  assert.equal(reads, 2);
+  now = 60_000;
+  assert.equal((await service.metadata()).total, 0);
+  assert.equal(reads, 3);
+});
+
 test('anonymous catalog exposes only active products and navigation labels', async () => {
   const response = await fetch(`${origin}/api/web/catalog`);
   assert.equal(response.status, 200);

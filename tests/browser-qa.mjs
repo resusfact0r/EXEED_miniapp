@@ -85,7 +85,10 @@ async function fixture(options, run) {
           }
         }
         if (state.mode === 'snapshot') return json({ message: 'Not found' }, 404);
-        if (url.pathname === '/api/web/catalog') return json(state.mode === 'invalid-metadata' ? { total: 'bad', brands: [null] } : snapshot.metadata);
+        if (url.pathname === '/api/web/catalog') {
+          if (state.metadataDelay) await wait(state.metadataDelay);
+          return json(state.mode === 'invalid-metadata' ? { total: 'bad', brands: [null] } : snapshot.metadata);
+        }
         if (url.pathname === '/api/web/products') {
           if (state.productFailure) return json({ message: 'Unavailable' }, 503);
           if (state.badProducts) return json({ items: [{ name: 'Broken' }], total: 1 });
@@ -310,6 +313,11 @@ try {
     const link = await page.$eval('.web-dialog a.button', (element) => element.href); assert.equal(new URL(link).hostname, 't.me'); assert.ok(new URL(link).searchParams.get('text').length <= 1800);
     assert.ok(await page.$eval('.web-dialog', (element) => element.scrollWidth <= element.clientWidth + 1));
     await page.screenshot({ path: resolve(output, 'cart-mobile.png'), fullPage: true }); await accessibility(page, 'accessibility-cart.json');
+  }));
+
+  await scenario('slow live catalog metadata still opens the live storefront', () => fixture({ mode: 'live', metadataDelay: 5500 }, async (page) => {
+    await ready(page);
+    assert.equal(await page.$('.snapshot-notice'), null);
   }));
 
   await scenario('live catalog outage stays visible and retry recovers without stale prices', () => fixture({ mode: 'live' }, async (page, state) => {
