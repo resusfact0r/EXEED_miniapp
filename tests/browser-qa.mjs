@@ -49,7 +49,7 @@ async function scenario(name, run) {
 async function fixture(options, run) {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
-  const state = { mode: 'snapshot', snapshotAvailable: true, productFailure: false, badProducts: false, requests: [], errors: [], ...options };
+  const state = { mode: 'snapshot', snapshotAvailable: true, productFailure: false, badProducts: false, requests: [], orbitRequests: 0, errors: [], ...options };
   await page.setViewport({ width: options.width ?? 1440, height: options.height ?? 1000, deviceScaleFactor: 1, isMobile: Boolean(options.mobile), hasTouch: Boolean(options.mobile) });
   await page.evaluateOnNewDocument((key, saved, blocked) => {
     if (saved !== undefined) localStorage.setItem(key, saved);
@@ -62,6 +62,7 @@ async function fixture(options, run) {
     try {
       const url = new URL(request.url());
       const json = (value, status = 200) => request.respond({ status, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(value) });
+      if (/\/CarOrbit-.*\.js$/.test(url.pathname)) state.orbitRequests++;
       if (state.blockChunk && /\/WebApp-.*\.js$/.test(url.pathname)) return request.respond({ status: 503, body: 'QA unavailable chunk' });
       if (state.staff && url.pathname === '/api/admin/catalog/cards') {
         if (request.headers()['x-admin-token'] !== 'staff-test') return json({ message: 'Invalid admin token' }, 401);
@@ -158,6 +159,54 @@ try {
       if ([390, 1440].includes(width)) await accessibility(page, `accessibility-${width}.json`);
     }));
   }
+
+  await scenario('3D car loads on demand, makes a full turn and keeps mobile category selection', () => fixture({ width: 320, height: 780, mobile: true }, async (page, state) => {
+    await ready(page);
+    assert.equal(state.orbitRequests, 0);
+    assert.equal(await page.$('.car-orbit-canvas'), null);
+    await page.evaluate(() => {
+      const draws = new WeakMap();
+      const draw = CanvasRenderingContext2D.prototype.clearRect;
+      CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+        draws.set(this.canvas, (draws.get(this.canvas) ?? 0) + 1);
+        return draw.apply(this, args);
+      };
+      window.carDraws = () => draws.get(document.querySelector('.car-orbit-canvas')) ?? 0;
+    });
+    await page.click('.car-view-controls button:nth-child(2)');
+    await page.waitForFunction(() => window.carDraws() > 0);
+    const picture = () => page.$eval('.car-orbit-canvas', (canvas) => canvas.toDataURL());
+    assert.equal(state.orbitRequests, 1);
+    const start = await picture();
+    const initialDraws = await page.evaluate(() => window.carDraws());
+    await wait(100);
+    assert.equal(await page.evaluate(() => window.carDraws()), initialDraws, 'idle model should not repaint');
+    const next = '.car-orbit-controls button[aria-label="Повернуть вправо"]';
+    for (let step = 0; step < 12; step++) {
+      const before = await page.evaluate(() => window.carDraws());
+      await page.$eval(next, (button) => button.click());
+      await page.waitForFunction((value) => window.carDraws() > value, {}, before);
+      if (step === 0) assert.notEqual(await picture(), start);
+    }
+    assert.equal(await picture(), start, 'twelve 30-degree steps complete one turn');
+    await page.click('.car-orbit-controls button:nth-child(2)');
+    await page.waitForFunction((initial) => document.querySelector('.car-orbit-canvas').toDataURL() === initial, {}, start);
+    const target = await page.$eval('.car-orbit-canvas', (canvas) => {
+      canvas.scrollIntoView({ block: 'center' });
+      const rect = canvas.getBoundingClientRect();
+      return { x: rect.left + rect.width / 4, y: rect.top + rect.height / 2, distance: rect.width / 3 };
+    });
+    await page.touchscreen.touchStart(target.x, target.y);
+    await page.touchscreen.touchMove(target.x + target.distance, target.y);
+    await page.touchscreen.touchEnd();
+    await page.waitForFunction((initial) => document.querySelector('.car-orbit-canvas').toDataURL() !== initial, {}, start);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    await page.select('.mobile-category select', 'engine');
+    await page.waitForSelector('.assembly-map');
+    await page.click('.car-view-controls button:first-child');
+    assert.equal(await page.$('.car-orbit-canvas'), null);
+    assert.equal(await page.$eval('.map-pin[aria-label="Показать раздел: Двигатель"]', (pin) => pin.getAttribute('aria-pressed')), 'true');
+  }));
 
   await scenario('all six map nodes and all catalog sections select the intended products', () => fixture({}, async (page) => {
     await ready(page);
