@@ -224,6 +224,13 @@ try {
         return (copper > 50) === engine && (teal > 20) === mirrors;
       }, {}, selector, engine, mirrors);
     }
+    async function expectProducts(category) {
+      const expected = filterWebProducts(snapshot.products, { category }).items.map(({ code }) => code);
+      await page.waitForFunction((expected) => {
+        const cards = [...document.querySelectorAll('.product-card .article-code')];
+        return cards.length === expected.length && cards.every((card, index) => card.textContent.trim() === expected[index]);
+      }, {}, expected);
+    }
     const orbit = '.car-orbit-canvas';
     await ready(page);
     await highlights(orbit, true, true);
@@ -231,12 +238,10 @@ try {
     await highlights(orbit, true, true);
     await page.click('.categories [data-part="engine"]');
     await highlights(orbit, false, true);
-    await settled(page);
+    await expectProducts('mirrors');
     assert.equal(new URL(page.url()).searchParams.get('category'), 'mirrors');
-    assert.deepEqual(await codes(page), filterWebProducts(snapshot.products, { category: 'mirrors' }).items.map(({ code }) => code));
     await page.click('.categories [data-part="engine"]');
-    await settled(page);
-    assert.deepEqual(await codes(page), filterWebProducts(snapshot.products, { category: 'engine,mirrors' }).items.map(({ code }) => code));
+    await expectProducts('engine,mirrors');
     await page.reload();
     await highlights(orbit, true, true);
     await page.click('.car-view-controls button:first-child');
