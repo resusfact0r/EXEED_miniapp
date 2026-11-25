@@ -12,17 +12,24 @@ const nodes = [
   { id: 'transmission', number: '6', name: 'Трансмиссия', x: 450, y: 326 },
 ];
 
-type CarMapProps = { selected: string; onSelect: (category: string) => void };
+type CarMapProps = { selected: string[]; onSelect: (category: string) => void };
 
 export function CarMap(props: CarMapProps) {
-  const [showOrbit, setShowOrbit] = useState(false);
+  const [showOrbit, setShowOrbit] = useState(() => new URLSearchParams(location.search).get('view') === '3d');
+
+  function switchView(orbit: boolean) {
+    setShowOrbit(orbit);
+    const url = new URL(location.href);
+    if (orbit) url.searchParams.set('view', '3d'); else url.searchParams.delete('view');
+    history.replaceState(null, '', url);
+  }
 
   return <>
     <div className="visual-heading">
       <h2 className="step-title"><span>2</span>Узел автомобиля</h2>
       <div className="car-view-controls" role="group" aria-label="Вид автомобиля">
-        <button type="button" aria-pressed={!showOrbit} onClick={() => setShowOrbit(false)}>Сбоку</button>
-        <button type="button" aria-pressed={showOrbit} onClick={() => setShowOrbit(true)}>3D</button>
+        <button type="button" aria-pressed={!showOrbit} onClick={() => switchView(false)}>Сбоку</button>
+        <button type="button" aria-pressed={showOrbit} onClick={() => switchView(true)}>3D</button>
       </div>
     </div>
     <div className="car-map" aria-label="Схема автомобиля">
@@ -32,20 +39,22 @@ export function CarMap(props: CarMapProps) {
           <SideMap {...props}/>
         </>}>
           <Suspense fallback={<p className="car-orbit-status" role="status">Загружаем 3D…</p>}>
-            <CarOrbit/>
+            <CarOrbit selected={props.selected}/>
           </Suspense>
         </ErrorBoundary>
       ) : <SideMap {...props}/>}
     </div>
+    <p className="part-instruction">Выберите один или несколько узлов для подсветки.</p>
   </>;
 }
 
 function SideMap({ selected, onSelect }: CarMapProps) {
+  const poster = <img className="vehicle" src={`${import.meta.env.BASE_URL}car-profile.webp`} alt="Автомобиль сбоку, передняя часть справа" width="900" height="360" draggable="false"/>;
   return <div className="car-map-canvas">
-    <img className="vehicle" src={`${import.meta.env.BASE_URL}car-side.svg`} alt="Условная схема автомобиля сбоку: два колеса одинакового размера на одной оси, передняя часть справа" width="900" height="360" draggable="false"/>
+    {selected.length ? <ErrorBoundary fallback={poster}><Suspense fallback={poster}><CarOrbit profile selected={selected}/></Suspense></ErrorBoundary> : poster}
     <svg className="map-connectors" viewBox="0 0 900 360" aria-hidden="true">
-      <path d="M700 34V145M850 200H800L758 180M650 326V283M260 326V283M450 34V98M450 326V232"/>
+      <path d="M700 34V118L665 162M850 200H800L760 183M650 326V279M260 326V279M450 34V88M450 326V247"/>
     </svg>
-    {nodes.map((node) => <button key={node.id} className={`map-pin ${selected === node.id ? 'is-active' : ''}`} style={{ left: `${node.x / 9}%`, top: `${node.y / 3.6}%` }} onClick={() => onSelect(selected === node.id ? '' : node.id)} aria-label={`Показать раздел: ${node.name}`} aria-pressed={selected === node.id}><span>{node.number}</span><span className="pin-tooltip">{node.name}</span></button>)}
+    {nodes.map((node) => <button key={node.id} className={`map-pin ${selected.includes(node.id) ? 'is-active' : ''}`} style={{ left: `${node.x / 9}%`, top: `${node.y / 3.6}%` }} onClick={() => onSelect(node.id)} aria-label={`Показать раздел: ${node.name}`} aria-pressed={selected.includes(node.id)}><span>{node.number}</span><span className="pin-tooltip">{node.name}</span></button>)}
   </div>;
 }

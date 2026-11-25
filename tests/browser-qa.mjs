@@ -19,7 +19,7 @@ const candidates = [process.env.PUPPETEER_EXECUTABLE_PATH, process.env.CHROME_PA
 let executablePath;
 for (const candidate of candidates) { if (await access(candidate).then(() => true, () => false)) { executablePath = candidate; break; } }
 if (!executablePath) throw new Error('An installed Chrome or Chromium is required for browser QA');
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.ttf': 'font/ttf' };
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://fixture.invalid');
@@ -201,19 +201,60 @@ try {
     await page.touchscreen.touchEnd();
     await page.waitForFunction((initial) => document.querySelector('.car-orbit-canvas').toDataURL() !== initial, {}, start);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
-    await page.select('.mobile-category select', 'engine');
+    await page.click('.categories [data-part="engine"]');
     await page.waitForSelector('.assembly-map');
     await page.click('.car-view-controls button:first-child');
     assert.equal(await page.$('.car-orbit-canvas'), null);
     assert.equal(await page.$eval('.map-pin[aria-label="Показать раздел: Двигатель"]', (pin) => pin.getAttribute('aria-pressed')), 'true');
   }));
 
+  await scenario('engine and mirrors keep independent colors on the rotating mesh, in profile and on reload', () => fixture({ mode: 'live', path: '/?web=1&view=3d&category=engine,mirrors' }, async (page) => {
+    async function highlights(selector, engine, mirrors) {
+      await page.waitForFunction((selector, engine, mirrors) => {
+        const canvas = document.querySelector(selector);
+        if (!canvas) return false;
+        const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        let copper = 0, teal = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i + 3] < 200) continue;
+          const [r, g, b] = [pixels[i], pixels[i + 1], pixels[i + 2]];
+          if (r > 165 && r > g + 48 && g > b + 35) copper++;
+          if (g > 120 && g > r + 60 && b > r + 40) teal++;
+        }
+        return (copper > 50) === engine && (teal > 20) === mirrors;
+      }, {}, selector, engine, mirrors);
+    }
+    const orbit = '.car-orbit-canvas';
+    await ready(page);
+    await highlights(orbit, true, true);
+    await page.click('.car-orbit-controls button:last-child');
+    await highlights(orbit, true, true);
+    await page.click('.categories [data-part="engine"]');
+    await highlights(orbit, false, true);
+    await settled(page);
+    assert.equal(new URL(page.url()).searchParams.get('category'), 'mirrors');
+    assert.deepEqual(await codes(page), filterWebProducts(snapshot.products, { category: 'mirrors' }).items.map(({ code }) => code));
+    await page.click('.categories [data-part="engine"]');
+    await settled(page);
+    assert.deepEqual(await codes(page), filterWebProducts(snapshot.products, { category: 'engine,mirrors' }).items.map(({ code }) => code));
+    await page.reload();
+    await highlights(orbit, true, true);
+    await page.click('.car-view-controls button:first-child');
+    await highlights('.car-profile', true, true);
+    await page.click('.categories [data-part="mirrors"]');
+    await highlights('.car-profile', true, false);
+    await page.click('.categories button:first-child');
+    await page.waitForSelector('img.vehicle');
+    assert.equal(new URL(page.url()).searchParams.get('category'), null);
+  }));
+
   await scenario('all six map nodes and all catalog sections select the intended products', () => fixture({}, async (page) => {
     await ready(page);
     const nodes = await page.$$eval('.map-pin', (buttons) => buttons.map((button) => button.getAttribute('aria-label')));
-    for (const label of nodes) { await page.click(`button[aria-label="${label}"]`); await settled(page); assert.equal(await page.$eval(`button[aria-label="${label}"]`, (element) => element.getAttribute('aria-pressed')), 'true'); }
+    for (const label of nodes) { await page.click('.categories button:first-child'); await page.click(`button[aria-label="${label}"]`); await settled(page); assert.equal(await page.$eval(`button[aria-label="${label}"]`, (element) => element.getAttribute('aria-pressed')), 'true'); }
     assert.equal(await page.$eval('.assembly-map', (element) => element.getAttribute('aria-label')), 'Детали раздела: Трансмиссия');
     for (const category of snapshot.metadata.categories) {
+      await page.click('.categories button:first-child');
       await page.$$eval('.categories button', (buttons, name) => buttons.find((button) => button.textContent === name).click(), category.name);
       await settled(page);
       const expected = filterWebProducts(snapshot.products, { category: category.id, pageSize: 12 }).items.map((product) => product.code);
@@ -396,8 +437,8 @@ try {
 
   await scenario('mobile map touch and the compact assembly selector stay in sync', () => fixture({ width: 360, height: 800, mobile: true }, async (page) => {
     await ready(page); await page.tap('[aria-label="Показать раздел: Двигатель"]'); await settled(page);
-    assert.equal(await page.$eval('.mobile-category select', (element) => element.value), 'engine');
-    await page.select('.mobile-category select', 'cooling'); await settled(page);
+    assert.equal(await page.$eval('.categories [data-part="engine"]', (element) => element.getAttribute('aria-pressed')), 'true');
+    await page.tap('.categories [data-part="cooling"]'); await settled(page);
     assert.match(await page.$eval('#catalog-title', (element) => element.textContent), /Охлаждение и климат/);
     assert.equal(await page.$eval('#parts-search', (element) => getComputedStyle(element).fontSize), '16px');
   }));

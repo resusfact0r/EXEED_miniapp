@@ -7,7 +7,9 @@ const defaultYaw = Math.PI / 6;
 const buttonStep = Math.PI / 6;
 const maxPixelRatio = 1.5;
 
-export function CarOrbit() {
+export function CarOrbit({ selected, profile = false }: { selected: string[]; profile?: boolean }) {
+  const selection = selected.join(',');
+  const selectedRef = useRef<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const yaw = useRef(defaultYaw);
   const pointer = useRef<{ id: number; x: number } | null>(null);
@@ -15,9 +17,15 @@ export function CarOrbit() {
   const [available, setAvailable] = useState(true);
 
   useEffect(() => {
+    selectedRef.current = selection ? selection.split(',') : [];
+    schedule.current();
+  }, [selection]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
-    const context = canvas?.getContext('2d');
-    if (!canvas || !context || typeof ResizeObserver === 'undefined') {
+    const supported = typeof Path2D !== 'undefined' && typeof ResizeObserver !== 'undefined';
+    const context = supported && canvas?.getContext('2d');
+    if (!canvas || !context) {
       setAvailable(false);
       return;
     }
@@ -27,7 +35,7 @@ export function CarOrbit() {
     let height = 0;
     function paint() {
       frame = null;
-      if (width > 0 && height > 0 && context) drawCar(context, width, height, yaw.current);
+      if (width > 0 && height > 0 && context) drawCar(context, width, height, profile ? 0 : yaw.current, selectedRef.current, profile);
     }
     schedule.current = () => {
       if (frame === null) frame = requestAnimationFrame(paint);
@@ -50,7 +58,7 @@ export function CarOrbit() {
       if (frame !== null) cancelAnimationFrame(frame);
       schedule.current = () => {};
     };
-  }, []);
+  }, [profile]);
 
   function rotate(delta: number) {
     yaw.current = (yaw.current + delta) % fullTurn;
@@ -77,6 +85,8 @@ export function CarOrbit() {
     if (pointer.current?.id === event.pointerId) pointer.current = null;
   }
 
+  if (profile && !available) return <img className="vehicle" src={`${import.meta.env.BASE_URL}car-profile.webp`} alt="Автомобиль сбоку"/>;
+  if (profile) return <canvas className="vehicle car-profile" ref={canvasRef} role="img" aria-label="Выбранные узлы на боковой схеме"/>;
   if (!available) return <p className="car-orbit-status" role="status">3D недоступно. Узел можно выбрать на боковой схеме.</p>;
 
   return <div className="car-orbit">
@@ -85,7 +95,7 @@ export function CarOrbit() {
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag}
       onPointerCancel={endDrag} onLostPointerCapture={endDrag}/>
     <div className="car-orbit-toolbar">
-      <p className="car-orbit-hint">Проведите вбок, чтобы повернуть. Узлы — под схемой.</p>
+      <p className="car-orbit-hint">Проведите вбок, чтобы повернуть автомобиль.</p>
       <div className="car-orbit-controls" role="group" aria-label="Вращение автомобиля">
         <button type="button" onClick={() => rotate(-buttonStep)} aria-label="Повернуть влево">←</button>
         <button type="button" onClick={() => { yaw.current = defaultYaw; schedule.current(); }}>Сбросить ракурс</button>

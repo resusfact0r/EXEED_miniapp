@@ -3,9 +3,10 @@ import { Warehouse } from './Warehouse';
 import { CatalogAdmin } from './CatalogAdmin';
 import { OfferList, ProductGallery, warehouseLabel } from './ProductOffers';
 import { inStock, type CatalogOffer } from '../../server/src/catalog/offers';
-import { matchesOriginal } from '../../server/src/catalog/web-taxonomy';
+import { categoryIds, matchesOriginal } from '../../server/src/catalog/web-taxonomy';
 import { historyList } from './orders';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { partColors } from './partColors';
 import { CarMap } from './CarMap';
 import { AssemblyMap } from './AssemblyMap';
 import { Icon } from './Icons';
@@ -71,7 +72,9 @@ function Store() {
   const metadata = catalog?.metadata;
   const source = catalog?.source;
   const currentBrand = metadata?.brands.find((brand) => brand.name === filters.brand);
-  const currentCategory = metadata?.categories.find((category) => category.id === filters.category);
+  const selected = categoryIds(filters.category);
+  const selectedNames = metadata?.categories.filter(({ id }) => selected.includes(id)).map(({ name }) => name);
+  const currentCategory = selected.length === 1 ? metadata?.categories.find(({ id }) => id === selected[0]) : undefined;
   const itemCount = bag.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = bag.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
   const hasFilters = Boolean(filters.brand || filters.model || filters.category || filters.query || filters.inStock || filters.sort !== 'name');
@@ -84,7 +87,8 @@ function Store() {
       setFilters((current) => {
         const brand = session.metadata.brands.find((candidate) => candidate.name === current.brand);
         const model = brand?.models.includes(current.model ?? '') ? current.model : '';
-        const category = session.metadata.categories.some((candidate) => candidate.id === current.category) ? current.category : '';
+        const allowed = session.metadata.categories.map(({ id }) => id);
+        const category = categoryIds(current.category).filter((id) => allowed.includes(id)).join(',');
         return current.brand === (brand?.name ?? '') && current.model === model && current.category === category ? current : { ...current, brand: brand?.name ?? '', model, category, page: 1 };
       });
       setCatalog(session);
@@ -126,7 +130,14 @@ function Store() {
     if (scroll) resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function reset() { setFilters({ ...emptyFilters }); setSearch(''); }
-  function selectCategory(category: string) { setSearch(''); update({ category, query: '' }); }
+  function selectCategory(id: string) {
+    setSearch('');
+    setFilters((current) => {
+      const ids = categoryIds(current.category);
+      const next = ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id];
+      return { ...current, category: id ? next.join(',') : '', query: '', page: 1 };
+    });
+  }
   function submitSearch(event: FormEvent) { event.preventDefault(); update({ query: search.trim() }, true); }
   function mutateBag(transform: (current: BagItem[]) => BagItem[]) { const next = transform(bagRef.current); bagRef.current = next; setBag(next); }
   function add(product: NavigationProduct, offer?: CatalogOffer) {
@@ -199,15 +210,19 @@ function Store() {
           <label htmlFor="vehicle-brand">Марка</label><div className="select-wrap"><select id="vehicle-brand" aria-label="Марка автомобиля" value={filters.brand} disabled={!metadata} onChange={(event) => update({ brand: event.target.value, model: '' })}><option value="">{metadata ? 'Все марки' : 'Загружаем…'}</option>{metadata?.brands.map((brand) => <option key={brand.name} value={brand.name}>{brand.name}</option>)}</select><Icon name="down" size={16}/></div>
           <label htmlFor="vehicle-model">Модель</label><div className="select-wrap"><select id="vehicle-model" aria-label="Модель автомобиля" value={filters.model} disabled={!currentBrand?.models.length} onChange={(event) => update({ model: event.target.value })}><option value="">{currentBrand && !currentBrand.models.length ? 'Подбор по артикулу' : 'Все модели'}</option>{currentBrand?.models.map((model) => <option key={model}>{model}</option>)}</select><Icon name="down" size={16}/></div>
         </div>
-        <div className="visual-picker"><CarMap selected={filters.category ?? ''} onSelect={selectCategory}/>
-          <nav className="categories" aria-label="Разделы каталога"><button className={!filters.category ? 'is-active' : ''} aria-pressed={!filters.category} onClick={() => selectCategory('')}>Все детали</button>{metadata?.categories.map((category) => <button key={category.id} className={filters.category === category.id ? 'is-active' : ''} onClick={() => selectCategory(category.id)} aria-pressed={filters.category === category.id}>{category.name}</button>)}</nav>
-          <div className="select-wrap mobile-category"><select aria-label="Узел автомобиля" value={filters.category} onChange={(event) => selectCategory(event.target.value)}><option value="">Все узлы</option>{metadata?.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Icon name="down" size={16}/></div>
+        <div className="visual-picker"><CarMap selected={selected} onSelect={selectCategory}/>
+          <nav className="categories" aria-label="Разделы каталога">
+            <button className={!selected.length ? 'is-active' : ''} aria-pressed={!selected.length} onClick={() => selectCategory('')}>Все детали</button>
+            {metadata?.categories.map(({ id, name }) => <button key={id} data-part={id} className={selected.includes(id) ? 'is-active' : ''} aria-pressed={selected.includes(id)} onClick={() => selectCategory(id)}>
+              <i aria-hidden="true" style={{ backgroundColor: partColors[id] }}/>{name}
+            </button>)}
+          </nav>
         </div>
       </section>
 
       <section className="catalog-section" id="catalog" ref={resultsRef} aria-labelledby="catalog-title">
-        <div className="products-toolbar"><div><h2 id="catalog-title">{filters.query ? `Поиск: «${filters.query}»` : currentCategory?.name ?? 'Все детали'}<span className="result-count" aria-live="polite">{loading ? '…' : number(total)}</span></h2>{(filters.brand || filters.model) && <p className="selected-vehicle">{filters.brand} {filters.model}</p>}</div><div className="result-controls"><label className="stock-checkbox"><input type="checkbox" checked={Boolean(filters.inStock)} onChange={(event) => update({ inStock: event.target.checked })}/>В наличии</label><label className="sort-picker"><span className="sr-only">Сортировка деталей</span><select aria-label="Сортировка деталей" value={filters.sort} onChange={(event) => update({ sort: event.target.value })}><option value="name">По названию</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select><Icon name="down" size={14}/></label>{hasFilters && <button className="reset-button" onClick={reset}>Сбросить<Icon name="close" size={14}/></button>}</div></div>
-        {currentCategory && <AssemblyMap category={currentCategory.id} title={currentCategory.name} query={filters.query ?? ''} onSelect={(query) => { setSearch(query); update({ query }); }}/>}
+        <div className="products-toolbar"><div><h2 id="catalog-title">{filters.query ? `Поиск: «${filters.query}»` : (selectedNames?.join(' + ') || 'Все детали')}<span className="result-count" aria-live="polite">{loading ? '…' : number(total)}</span></h2>{(filters.brand || filters.model) && <p className="selected-vehicle">{filters.brand} {filters.model}</p>}</div><div className="result-controls"><label className="stock-checkbox"><input type="checkbox" checked={Boolean(filters.inStock)} onChange={(event) => update({ inStock: event.target.checked })}/>В наличии</label><label className="sort-picker"><span className="sr-only">Сортировка деталей</span><select aria-label="Сортировка деталей" value={filters.sort} onChange={(event) => update({ sort: event.target.value })}><option value="name">По названию</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select><Icon name="down" size={14}/></label>{hasFilters && <button className="reset-button" onClick={reset}>Сбросить<Icon name="close" size={14}/></button>}</div></div>
+        {currentCategory && <AssemblyMap category={currentCategory.id} title={currentCategory.name} query={filters.query ?? ''} onSelect={(query) => { if (query === 'зеркало') { setSearch(''); update({ category: 'mirrors', query: '' }); } else { setSearch(query); update({ query }); } }}/>}
         {source === 'snapshot' && <p className="snapshot-notice">Каталог из выгрузки. Цену, наличие и совместимость уточним перед заказом.</p>}
         {error ? <div className="empty-state" role="alert"><Icon name="electric" size={28}/><h3>Каталог временно недоступен</h3><p>{error}</p><button className="button" onClick={() => setRetry((value) => value + 1)}>Попробовать снова</button></div> : loading ? <div className="product-loading" role="status" aria-label="Загрузка деталей"><span className="loading-dot"/>Ищем детали…</div> : !items.length ? <div className="empty-state"><Icon name="search" size={28}/><h3>Детали не найдены</h3><p>Попробуйте другой артикул или измените условия подбора.</p><button className="button button-secondary" onClick={reset}>Сбросить фильтры</button><a href={supportUrl} target="_blank" rel="noreferrer" className="text-link">Помощь менеджера<Icon name="arrow" size={15}/></a></div> : <>
           <div className="list-heading" aria-hidden="true"><span>Деталь / артикул</span><span>Наличие</span><span>Цена за шт.</span><span/></div>

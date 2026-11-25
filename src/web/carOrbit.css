@@ -4,7 +4,7 @@
   width: 100%;
   aspect-ratio: 9 / 4;
   border-radius: 5px;
-  background: #f6f7f8;
+  background: radial-gradient(ellipse at 50% 35%, #fbfcfc, #e7edf0);
   cursor: grab;
   touch-action: pan-y;
 }

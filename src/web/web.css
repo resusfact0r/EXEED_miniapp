@@ -73,9 +73,11 @@ svg { flex-shrink: 0; }
 .pin-tooltip { display: none; position: absolute; bottom: 47px; left: 50%; transform: translateX(-50%); width: max-content; max-width: 185px; padding: 8px 11px; border: 1px solid var(--line); background: white; border-radius: 5px; font-size: 11px; color: #505963; box-shadow: 0 3px 12px #2735420c; }
 .map-pin:hover .pin-tooltip, .map-pin:focus-visible .pin-tooltip { display: block; }
 .map-pin:nth-of-type(2) .pin-tooltip { left: auto; right: 0; transform: none; }
-.mobile-category { display: none; }
+
 .categories { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 .categories > button { display: inline-flex; align-items: center; min-height: 34px; border: 1px solid var(--line); padding: 7px 10px; border-radius: 5px; font-size: 11px; color: #656e79; text-align: left; }
+.categories i { width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; opacity: .45; }
+.categories button[aria-pressed="true"] i { opacity: 1; box-shadow: 0 0 0 2px white; }
 .categories > button:hover { background: #f6f7f8; }
 .categories > button.is-active { border-color: #d6b9ac; background: #faf4f0; color: #995037; }
 .catalog-section { margin-top: 36px; scroll-margin-top: 24px; }
@@ -220,9 +222,9 @@ svg { flex-shrink: 0; }
   .car-map-canvas { margin: 0 auto; }
   .map-pin > span:first-child { height: 26px; width: 26px; font-size: 10px; }
   .pin-tooltip { font-size: 10px; padding: 6px 8px; max-width: 155px; }
-  .categories { display: none; }
-  .mobile-category { display: block; margin-top: 12px; }
-  .categories > button { font-size: 10px; min-height: 33px; padding: 7px 8px; }
+
+
+  .categories > button { font-size: 10px; min-height: 44px; padding: 7px 10px; }
   .catalog-section { margin-top: 29px; scroll-margin-top: 18px; }
   .products-toolbar { flex-direction: column; align-items: flex-start; gap: 9px; }
   .products-toolbar h2 { font-size: 19px; }
@@ -324,3 +326,5 @@ svg { flex-shrink: 0; }
 .admin-mail-preview { margin-top: 16px; overflow-wrap: anywhere; }
 .history-filter { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .history-filter select { max-width: 100%; min-width: 0; }
+
+.part-instruction { color: #536370; font-size: 12px; margin: 6px 0; }

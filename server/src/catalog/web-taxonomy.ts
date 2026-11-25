@@ -20,6 +20,7 @@ export const BRAND_RULES = [
 export const WEB_CATEGORIES = [
   { id: 'engine', name: 'Двигатель', terms: ['двигател', 'порш', 'коленвал', 'распредвал', 'грм', 'клапан', 'маслян', 'масляный', 'масляного', 'свеч', 'впуск', 'турбин', 'турбокомпресс', 'форсунк', 'топлив', 'воздушн', 'дроссел', 'ремень', 'ролик', 'головка блока'] },
   { id: 'body', name: 'Кузов и оптика', terms: ['кузов', 'бампер', 'капот', 'крыло', 'крыла', 'двер', 'зеркал', 'фар', 'фонар', 'решетк', 'решётк', 'стекло', 'стекла', 'молдинг', 'порог', 'эмблем', 'логотип', 'пневмоупор', 'спойлер'] },
+  { id: 'mirrors', name: 'Зеркала', terms: ['зеркал'] },
   { id: 'suspension', name: 'Подвеска и рулевое', terms: ['амортизатор', 'рычаг', 'стойка', 'стойки', 'стабилизатор', 'сайлентблок', 'шаров', 'пружин', 'ступиц', 'рулев', 'рулевой', 'подшипник ступ', 'поворотн'] },
   { id: 'brakes', name: 'Тормозная система', terms: ['тормозн', 'суппорт', 'колодк', 'abs', 'абс'] },
   { id: 'transmission', name: 'Трансмиссия', terms: ['сцеплен', 'кпп', 'акпп', 'вариатор', 'шрус', 'привод', 'кардан', 'дифференциал', 'маховик', 'трансмис', 'dsg', 'cvt'] },
@@ -103,6 +104,10 @@ export function matchesOriginal(product: NavigationProduct, query: string) {
   return product.originalArticles?.includes(articleKey(query)) ?? false;
 }
 
+export function categoryIds(value = ''): string[] {
+  return [...new Set(value.split(',').filter(Boolean))];
+}
+
 export function filterWebProducts(products: NavigationProduct[], filters: WebFilters) {
   const words = (filters.query ?? '').trim().toLocaleLowerCase('ru').split(/\s+/).filter(Boolean).slice(0, 8);
   const compact = (value: string) => value.replace(/[-.\s/]/g, '').toLowerCase();
@@ -117,12 +122,13 @@ export function filterWebProducts(products: NavigationProduct[], filters: WebFil
     }) ?? false;
   };
   const query = filters.query ?? '';
+  const selected = categoryIds(filters.category);
   const result = products.filter((product) =>
     (!filters.inStock || (product.offers ? product.offers.some(inStock) : product.stockQty >= product.packQty)) &&
     (matchesOriginal(product, query) || (
       (!filters.brand || product.brands.includes(filters.brand)) &&
       (!filters.model || product.models.includes(`${filters.brand}:${filters.model}`)) &&
-      (!filters.category || product.categories.includes(filters.category)) &&
+      (!selected.length || selected.some((id) => product.categories.includes(id))) &&
       matchesWords(product)
     )),
   );
