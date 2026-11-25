@@ -3,6 +3,8 @@ name: Verify and publish VPS release
 on:
   push:
     branches: [main, feat/web-visual-catalog]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -71,6 +73,7 @@ jobs:
           retention-days: 7
 
   publish:
+    if: github.event_name != 'pull_request'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
