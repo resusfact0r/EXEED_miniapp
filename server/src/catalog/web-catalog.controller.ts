@@ -7,7 +7,7 @@ class WebSearchDto {
   @IsOptional() @IsString() @MaxLength(200) query?: string;
   @IsOptional() @IsString() @MaxLength(50) brand?: string;
   @IsOptional() @IsString() @MaxLength(80) model?: string;
-  @IsOptional() @IsString() @MaxLength(30) category?: string;
+  @IsOptional() @IsString() @MaxLength(128) category?: string;
   @IsOptional() @IsIn(['true', 'false']) inStock?: string;
   @IsOptional() @IsIn(['name', 'price-asc', 'price-desc']) sort?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;

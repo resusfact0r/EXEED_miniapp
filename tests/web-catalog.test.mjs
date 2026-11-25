@@ -217,3 +217,18 @@ test('platform review requires a witnessed full OEM number and keeps provenance 
     assert.equal(classifyProduct({ code: code + 'UNREVIEWED', name: 'Деталь' }).vehicleApplications, undefined);
   }
 });
+
+test('multiple selected sections include either part once and keep stock and vehicle filters', () => {
+  const products = [
+    product('E', 'Двигатель EXEED TXL'),
+    product('M', 'Корпус зеркала EXEED TXL'),
+    product('EM', 'Двигатель регулировки зеркала EXEED TXL'),
+    product('B', 'Бампер EXEED TXL'),
+    product('X', 'Зеркало CHERY TIGGO 4'),
+    product('Z', 'Зеркало EXEED TXL', 0),
+  ];
+  const codes = (category) => filterWebProducts(products, { brand: 'EXEED', model: 'TXL', inStock: true, category }).items.map(({ code }) => code).sort();
+  assert.deepEqual(codes('engine'), ['E', 'EM']);
+  assert.deepEqual(codes('mirrors'), ['EM', 'M']);
+  assert.deepEqual(codes('engine,mirrors,engine'), ['E', 'EM', 'M']);
+});
